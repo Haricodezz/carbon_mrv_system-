@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Error — Carbon MRV{% endblock %}
+{% block content %}
+<div class="dashboard" style="max-width: 720px; margin: 40px auto;">
+  <div class="panel">
+    <div class="panel-header">
+      <h3>Something went wrong</h3>
+    </div>
+    <div class="panel-body">
+      <p style="margin: 0 0 12px 0; color: #444;">
+        {{ error or "Unexpected error." }}
+      </p>
+      <a href="{{ url_for('index') }}" class="btn-sm btn-primary">Go home</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

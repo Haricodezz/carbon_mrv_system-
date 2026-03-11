@@ -1,0 +1,223 @@
+{% extends "base.html" %}
+{% block title %}Document Management — Carbon MRV{% endblock %}
+{% block content %}
+<div class="dashboard">
+
+  <div class="dash-header">
+    <div>
+      <h1>📄 Document Management</h1>
+      <p>Review and approve user documents</p>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div class="cards-row" style="margin-bottom: 20px;">
+    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+      <form method="GET" style="display: flex; gap: 10px;">
+        <select name="status" class="form-control" style="width: auto;">
+          <option value="">All Status</option>
+          <option value="pending" {% if request.args.get('status') == 'pending' %}selected{% endif %}>Pending</option>
+          <option value="approved" {% if request.args.get('status') == 'approved' %}selected{% endif %}>Approved</option>
+          <option value="rejected" {% if request.args.get('status') == 'rejected' %}selected{% endif %}>Rejected</option>
+        </select>
+        <select name="doc_type" class="form-control" style="width: auto;">
+          <option value="">All Types</option>
+          <option value="land_deed" {% if request.args.get('doc_type') == 'land_deed' %}selected{% endif %}>Land Deed</option>
+          <option value="aadhaar" {% if request.args.get('doc_type') == 'aadhaar' %}selected{% endif %}>Aadhaar</option>
+          <option value="ngo_cert" {% if request.args.get('doc_type') == 'ngo_cert' %}selected{% endif %}>NGO Certificate</option>
+          <option value="gst" {% if request.args.get('doc_type') == 'gst' %}selected{% endif %}>GST</option>
+        </select>
+        <button type="submit" class="btn btn-primary">Filter</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Documents List -->
+  <div class="panel panel-full">
+    <div class="panel-header">
+      <h3>📋 Pending Documents Review</h3>
+    </div>
+    <div class="panel-body">
+      {% if documents %}
+      <table class="table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>User</th>
+            <th>Document Type</th>
+            <th>File</th>
+            <th>Uploaded</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for doc in documents %}
+          <tr>
+            <td>#{{ doc.id }}</td>
+            <td>
+              <strong>{{ doc.user_name }}</strong><br>
+              <small>{{ doc.user_email }}</small>
+            </td>
+            <td>
+              <span class="badge">{{ doc.doc_type | replace('_', ' ') | title }}</span>
+            </td>
+            <td>
+              <a href="{{ doc.file_path }}" target="_blank" class="btn-sm btn-info">
+                View File
+              </a>
+            </td>
+            <td>{{ doc.uploaded_at[:10] if doc.uploaded_at else '—' }}</td>
+            <td>
+              <span class="badge badge-{{ 'green' if doc.status == 'approved' else 'red' if doc.status == 'rejected' else 'amber' }}">
+                {{ doc.status | title }}
+              </span>
+            </td>
+            <td>
+              {% if doc.status == 'pending' %}
+              <button class="btn-sm btn-success" onclick="setDocId({{ doc.id }}, 'approve')">Approve</button>
+              <button class="btn-sm btn-danger" onclick="setDocId({{ doc.id }}, 'reject')">Reject</button>
+              {% else %}
+              <span class="badge">{{ doc.status | title }}</span>
+              {% if doc.review_note %}
+              <br><small>Note: {{ doc.review_note }}</small>
+              {% endif %}
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="empty-state">
+        No documents found. {% if request.args %}Try adjusting your filters.{% endif %}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+
+<!-- Approve Modal -->
+<div class="modal" id="approveModal">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5>Approve Document</h5>
+        <button type="button" class="close" onclick="closeModal('approveModal')">&times;</button>
+      </div>
+      <form method="POST" id="approveForm">
+        <div class="modal-body">
+          <p>Are you sure you want to approve this document?</p>
+          <textarea name="review_note" placeholder="Optional: Add a review note" class="form-control" rows="3"></textarea>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('approveModal')">Cancel</button>
+          <button type="submit" class="btn btn-success">Approve</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Reject Modal -->
+<div class="modal" id="rejectModal">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5>Reject Document</h5>
+        <button type="button" class="close" onclick="closeModal('rejectModal')">&times;</button>
+      </div>
+      <form method="POST" id="rejectForm">
+        <div class="modal-body">
+          <p>Why are you rejecting this document?</p>
+          <textarea name="review_note" placeholder="Reason for rejection (required)" class="form-control" rows="3" required></textarea>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('rejectModal')">Cancel</button>
+          <button type="submit" class="btn btn-danger">Reject</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+function setDocId(docId, action) {
+  const form = action === 'approve' ? document.getElementById('approveForm') : document.getElementById('rejectForm');
+  form.action = "{{ url_for('review_document') }}?doc_id=" + docId + "&action=" + action;
+  
+  const modalId = action === 'approve' ? 'approveModal' : 'rejectModal';
+  document.getElementById(modalId).style.display = 'block';
+}
+
+function closeModal(modalId) {
+  document.getElementById(modalId).style.display = 'none';
+}
+
+// Close modal when clicking outside
+window.onclick = function(event) {
+  if (event.target.classList.contains('modal')) {
+    event.target.style.display = 'none';
+  }
+}
+</script>
+
+<style>
+.modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.5);
+  z-index: 1000;
+}
+
+.modal-dialog {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: white;
+  border-radius: 4px;
+  min-width: 400px;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+}
+
+.modal-header {
+  padding: 20px;
+  border-bottom: 1px solid #ddd;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal-body {
+  padding: 20px;
+}
+
+.modal-footer {
+  padding: 15px 20px;
+  border-top: 1px solid #ddd;
+  text-align: right;
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.close {
+  cursor: pointer;
+  font-size: 24px;
+  background: none;
+  border: none;
+  padding: 0;
+  color: #666;
+}
+
+.close:hover {
+  color: #000;
+}
+</style>
+{% endblock %}

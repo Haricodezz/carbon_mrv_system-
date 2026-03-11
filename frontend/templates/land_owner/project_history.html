@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Project History — Carbon MRV{% endblock %}
+{% block content %}
+<div class="dashboard">
+  <div class="dash-header">
+    <div>
+      <h1>📊 Project #{{ project_id }} History</h1>
+      <a href="{{ url_for('land_owner_dashboard') }}" class="btn-outline btn-sm">← Back</a>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-body">
+      {% if history and history.history %}
+      <table class="table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Carbon Stock</th>
+            <th>Credits Generated</th>
+            <th>Buffer Added</th>
+            <th>Type</th>
+            <th>Measured At</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in history.history %}
+          <tr>
+            <td>{{ r.record_number }}</td>
+            <td>{{ "{:,.2f}".format(r.carbon_stock) }} CCT</td>
+            <td>{{ "{:,.2f}".format(r.credits_generated) }} CCT</td>
+            <td>{{ "{:,.2f}".format(r.buffer_added) }} CCT</td>
+            <td>
+              {% if r.is_baseline %}
+                <span class="badge badge-blue">Baseline</span>
+              {% else %}
+                <span class="badge badge-green">Monitor</span>
+              {% endif %}
+            </td>
+            <td>{{ r.measured_at[:19].replace('T',' ') }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="empty-state">No history found.</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

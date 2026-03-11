@@ -1,0 +1,1592 @@
+﻿{% extends "base.html" %}
+{% block title %}Land Owner Dashboard — Carbon MRV{% endblock %}
+{% block content %}
+<div class="dashboard">
+  {% set account_verified = user_status.get('is_verified') if user_status else session.get('is_verified') %}
+  {% set account_approved = user_status.get('is_approved') if user_status else session.get('is_approved', true) %}
+  {% set identity_status = latest_identity_document.status if latest_identity_document else '' %}
+
+  <!-- ══ Dashboard Header ══ -->
+  <div class="lo-header">
+    <div class="lo-header-left">
+      <h1>🌾 Land Owner Dashboard</h1>
+      <p class="lo-sub">Welcome, <strong>{{ session.name }}</strong> &nbsp;·&nbsp; Carbon Credit Management</p>
+    </div>
+    <div class="lo-status-pill {% if account_verified %}lo-pill-verified{% elif account_approved %}lo-pill-approved{% else %}lo-pill-pending{% endif %}">
+      <span class="lo-pill-dot"></span>
+      {% if account_verified %}Account Verified
+      {% elif account_approved %}Verification Pending
+      {% else %}Approval Pending{% endif %}
+    </div>
+  </div>
+
+  <!-- ══ Status Alert Banner ══ -->
+  {% if not account_approved %}
+  <div class="lo-banner lo-banner-warning">
+    <span class="lo-banner-icon">⚠️</span>
+    <div>
+      <strong>Account Pending Approval</strong>
+      <span>Your account is waiting for auditor/admin approval. Dashboard features will unlock after approval.</span>
+    </div>
+  </div>
+  {% elif not account_verified %}
+  <div class="lo-banner lo-banner-warning">
+    <span class="lo-banner-icon">🔐</span>
+    <div>
+      <strong>Verification Pending</strong>
+      <span>Your account is approved but needs verification before you can mint or sell credits.</span>
+    </div>
+  </div>
+  {% else %}
+  <div class="lo-banner lo-banner-success">
+    <span class="lo-banner-icon">✅</span>
+    <div>
+      <strong>Account Verified &amp; Active</strong>
+      <span>You can now register projects, earn credits, and list them on the marketplace.</span>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- ══ Credit Summary — Hero Cards ══ -->
+  {% set total_earned = ((wallet.total_credits or 0) + (wallet.buffer_contributed or 0)) if wallet else 0 %}
+  <div class="lo-credit-summary">
+
+    <div class="lo-hero-card lo-hero-earned">
+      <div class="lo-hero-icon">🌱</div>
+      <div class="lo-hero-body">
+        <div class="lo-hero-label">Total Credits Earned</div>
+        <div class="lo-hero-val">{{ "{:,.0f}".format(total_earned) }}</div>
+        <div class="lo-hero-sub">All CCT ever generated from your projects</div>
+      </div>
+      <div class="lo-hero-accent"></div>
+    </div>
+
+    <div class="lo-hero-card lo-hero-wallet">
+      <div class="lo-hero-icon">🔗</div>
+      <div class="lo-hero-body">
+        <div class="lo-hero-label">Credited to Wallet</div>
+        <div class="lo-hero-val">{{ "{:,.0f}".format((wallet.total_credits or 0) if wallet else 0) }}</div>
+        <div class="lo-hero-sub">CCT minted to your MetaMask wallet</div>
+      </div>
+      <div class="lo-hero-accent"></div>
+    </div>
+
+    <div class="lo-hero-card lo-hero-buffer">
+      <div class="lo-hero-icon">🛡️</div>
+      <div class="lo-hero-body">
+        <div class="lo-hero-label">Buffer Storage</div>
+        <div class="lo-hero-val">{{ "{:,.0f}".format((wallet.buffer_contributed or 0) if wallet else 0) }}</div>
+        <div class="lo-hero-sub">20% reserve held by platform as insurance</div>
+      </div>
+      <div class="lo-hero-accent"></div>
+    </div>
+
+  </div>
+
+  <!-- ══ Secondary Stat Cards ══ -->
+  <div class="lo-stat-row">
+    <div class="lo-stat-card lo-stat-green">
+      <span class="lo-stat-icon">💰</span>
+      <div class="lo-stat-label">Available Credits</div>
+      <div class="lo-stat-val">{{ "{:,.0f}".format((wallet.available_credits or 0) if wallet else 0) }}</div>
+      <div class="lo-stat-sub">Ready to list or sell</div>
+    </div>
+    <div class="lo-stat-card lo-stat-red">
+      <span class="lo-stat-icon">🔥</span>
+      <div class="lo-stat-label">Retired Credits</div>
+      <div class="lo-stat-val">{{ "{:,.0f}".format((wallet.retired_credits or 0) if wallet else 0) }}</div>
+      <div class="lo-stat-sub">Permanently burned</div>
+    </div>
+    <div class="lo-stat-card lo-stat-blue {% if account_approved %}lo-stat-ok{% else %}lo-stat-warn{% endif %}">
+      <span class="lo-stat-icon">{{ "✅" if account_approved else "⏳" }}</span>
+      <div class="lo-stat-label">Account Approval</div>
+      <div class="lo-stat-val lo-stat-text">{{ "Approved" if account_approved else "Pending" }}</div>
+      <div class="lo-stat-sub">Admin / Auditor review</div>
+    </div>
+    <div class="lo-stat-card lo-stat-purple {% if account_verified %}lo-stat-ok{% else %}lo-stat-warn{% endif %}">
+      <span class="lo-stat-icon">{{ "🔓" if account_verified else "🔐" }}</span>
+      <div class="lo-stat-label">Verification</div>
+      <div class="lo-stat-val lo-stat-text">{{ "Verified" if account_verified else "Pending" }}</div>
+      <div class="lo-stat-sub">Identity check status</div>
+    </div>
+    <div class="lo-stat-card lo-stat-teal {% if latest_identity_document and latest_identity_document.status == 'approved' %}lo-stat-ok{% elif latest_identity_document %}lo-stat-warn{% endif %}">
+      <span class="lo-stat-icon">{{ "📋" if latest_identity_document else "📂" }}</span>
+      <div class="lo-stat-label">Identity Doc</div>
+      <div class="lo-stat-val lo-stat-text">{% if latest_identity_document %}{{ latest_identity_document.status | title }}{% else %}Not Uploaded{% endif %}</div>
+      <div class="lo-stat-sub">PAN / document review</div>
+    </div>
+    <div class="lo-stat-card lo-stat-amber">
+      <span class="lo-stat-icon">🗂️</span>
+      <div class="lo-stat-label">Projects</div>
+      <div class="lo-stat-val">{{ projects | length if projects else 0 }}</div>
+      <div class="lo-stat-sub">Registered land plots</div>
+    </div>
+  </div>
+
+  <div class="dash-grid">
+
+    <!-- Project Registration + Interactive Map -->
+    <div class="panel panel-full reg-project-panel">
+      <div class="panel-header">
+        <h3>📍 Register New Project</h3>
+        <span style="font-size:.82rem;color:var(--text-muted);">Click the map to drop pins and build your land boundary</span>
+      </div>
+      <div class="panel-body" style="padding:0;">
+        <div class="reg-layout">
+
+          <!-- LEFT: Form -->
+          <div class="reg-form-col">
+            <form method="POST" action="{{ url_for('register_project') }}" enctype="multipart/form-data" id="projectForm">
+
+              <div class="reg-field">
+                <label>Project Name</label>
+                <input type="text" name="project_name" id="project_name"
+                  placeholder="e.g. North Forest Block A"
+                  class="form-control" required>
+              </div>
+
+              <div class="reg-field">
+                <label>
+                  Land Coordinates
+                  <span class="reg-coord-badge" id="reg-pin-count">0 pins</span>
+                </label>
+                <div class="reg-coord-box">
+                  <textarea name="coordinates" id="coordinates_input"
+                    rows="4"
+                    placeholder="Click the map to add pins, or type manually:&#10;28.385,77.170|28.390,77.180|28.380,77.185"
+                    class="form-control reg-coord-textarea" required></textarea>
+                  <div class="reg-coord-actions">
+                    <button type="button" class="reg-btn-clear" onclick="clearAllPins()">🗑 Clear Pins</button>
+                    <button type="button" class="reg-btn-undo" onclick="undoLastPin()">↩ Undo Last</button>
+                    <button type="button" class="reg-btn-center" onclick="centerMap()">🎯 My Location</button>
+                  </div>
+                </div>
+                <small class="reg-hint">Drop at least 3 pins to form a valid polygon. The polygon will auto-close.</small>
+              </div>
+
+              <div class="reg-field">
+                <label>Project Document Type</label>
+                <select name="project_doc_type" id="project_doc_type" class="form-control" required>
+                  <option value="">Select document type</option>
+                  <option value="land_deed">Land Deed</option>
+                  <option value="lease_agreement">Lease Agreement</option>
+                </select>
+              </div>
+
+              <div class="reg-field">
+                <label>Project Documents <span style="font-weight:400;color:var(--text-muted);">(PDF, JPG, PNG)</span></label>
+                <input type="file" name="project_documents" id="project_documents"
+                  class="form-control" accept=".pdf,.jpg,.jpeg,.png" multiple required>
+              </div>
+
+              <!-- Area preview -->
+              <div class="reg-area-preview" id="reg-area-preview" style="display:none;">
+                <div class="reg-area-row">
+                  <span>📐 Estimated Area</span>
+                  <strong id="reg-area-val">—</strong>
+                </div>
+                <div class="reg-area-row">
+                  <span>📍 Pins Placed</span>
+                  <strong id="reg-pins-val">—</strong>
+                </div>
+                <div class="reg-area-row">
+                  <span>🌿 Est. CO₂ Potential</span>
+                  <strong id="reg-co2-val">—</strong>
+                </div>
+              </div>
+
+              <button type="submit" class="btn btn-primary reg-submit-btn">
+                🌱 Register Project
+              </button>
+            </form>
+          </div>
+
+          <!-- RIGHT: Interactive Map -->
+          <div class="reg-map-col">
+            <div class="reg-map-toolbar">
+              <span class="reg-map-mode active" id="mode-pin" onclick="setMode('pin')">📍 Drop Pins</span>
+              <span class="reg-map-mode" id="mode-view" onclick="setMode('view')">🖐 Pan / Zoom</span>
+              <span class="reg-map-search">
+                <input type="text" id="map-search-input" placeholder="Search location..." class="reg-search-input">
+                <button type="button" onclick="searchLocation()" class="reg-search-btn">🔍</button>
+              </span>
+            </div>
+            <div id="reg-map" class="reg-map-container"></div>
+            <div class="reg-map-legend">
+              <span>🟢 Click to add pin</span>
+              <span>🔴 Last pin</span>
+              <span>🟩 Land polygon</span>
+              <span id="reg-map-coords-hint">Click map to start marking your land boundary</span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- Projects List -->
+    <div class="panel panel-full">
+      <div class="panel-header">
+        <h3>🗂 Your Projects</h3>
+      </div>
+      <div class="panel-body">
+        {% if projects %}
+        <table class="table">
+          <thead>
+            <tr>
+              <th>ID</th><th>Project Name</th><th>Area (Ha)</th><th>Status</th><th>Verified</th><th>Carbon (t)</th><th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for p in projects %}
+            <tr>
+              <td>#{{ p.id }}</td>
+              <td>{{ p.project_name }}</td>
+              <td>{{ "{:,.1f}".format(p.area_hectares) }}</td>
+              <td>
+                <span class="badge badge-{{ 'green' if p.status in ['approved', 'verified'] else 'amber' if p.status == 'pending' else 'red' }}">
+                  {{ p.status | title }}
+                </span>
+              </td>
+              <td>
+                {% if p.land_verified %}
+                  <span class="badge badge-green">✓</span>
+                {% else %}
+                  <span class="badge badge-amber">⚠️</span>
+                {% endif %}
+              </td>
+              <td>{{ "{:,.0f}".format(p.baseline_carbon) }}</td>
+              <td>
+                <a href="{{ url_for('project_history', project_id=p.id) }}" class="btn-sm btn-info">View</a>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state">No projects yet. Register your first project above!</div>
+        {% endif %}
+      </div>
+    </div>
+    <!-- Bank Account for Payouts -->
+    <div class="panel panel-full">
+      <div class="panel-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+        <h3 style="margin:0;">Bank Account for Credit Sale Payouts</h3>
+        {% if bank_account and bank_account.is_configured %}
+          <span class="badge badge-green">Configured</span>
+        {% else %}
+          <span class="badge badge-amber">Not Configured</span>
+        {% endif %}
+      </div>
+      <div class="panel-body">
+        <p style="margin:0 0 14px; color:#555; font-size:0.9rem;">
+          When your listed credits are purchased through the platform, payout settlement will be sent to this bank account.
+        </p>
+        {% if bank_account and bank_account.updated_at %}
+        <div class="alert alert-info" style="margin-bottom:14px;">
+          Last updated: {{ bank_account.updated_at[:16].replace('T', ' ') if bank_account.updated_at else '—' }}
+          {% if bank_account.account_number_masked %}
+            · Account: {{ bank_account.account_number_masked }}
+          {% endif %}
+        </div>
+        {% endif %}
+        <form method="POST" action="{{ url_for('update_land_owner_bank_account') }}" class="form-group" id="bankAccountForm">
+          <div class="bank-form-grid">
+            <div>
+              <label>Account Holder Name</label>
+              <input type="text" name="account_holder_name" class="form-control"
+                     value="{{ bank_account.account_holder_name if bank_account else '' }}"
+                     placeholder="As per bank records" maxlength="120" required>
+            </div>
+            <div>
+              <label>Bank Name</label>
+              <input type="text" name="bank_name" class="form-control"
+                     value="{{ bank_account.bank_name if bank_account else '' }}"
+                     placeholder="e.g., HDFC Bank" maxlength="120" required>
+            </div>
+            <div>
+              <label>IFSC Code</label>
+              <input type="text" name="ifsc_code" class="form-control" id="ifscCodeInput"
+                     value="{{ bank_account.ifsc_code if bank_account else '' }}"
+                     placeholder="HDFC0001234" minlength="11" maxlength="11" required>
+            </div>
+            <div>
+              <label>Account Number</label>
+              <input type="text" name="account_number" class="form-control"
+                     value="{{ bank_account.account_number if bank_account else '' }}"
+                     placeholder="9 to 18 digits" inputmode="numeric" maxlength="18" required>
+            </div>
+            <div>
+              <label>Confirm Account Number</label>
+              <input type="text" name="confirm_account_number" class="form-control"
+                     placeholder="Re-enter account number" inputmode="numeric" maxlength="18" required>
+            </div>
+            <div>
+              <label>Branch Name (Optional)</label>
+              <input type="text" name="branch_name" class="form-control"
+                     value="{{ bank_account.branch_name if bank_account else '' }}"
+                     placeholder="Branch / City" maxlength="120">
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary" style="margin-top: 10px;">
+            Save Bank Account
+          </button>
+        </form>
+      </div>
+    </div>
+    <!-- Sell Credits via CCT Transfer -->
+    <div class="panel panel-full">
+      <div class="panel-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+        <h3 style="margin:0;">💸 Sell Credits — Transfer CCT Tokens</h3>
+        <span class="badge badge-green" style="font-size:0.72rem; padding:4px 12px; border-radius:20px; background:#d4edda; color:#155724; border:1px solid #28a745;">
+          ⚡ Auto-Listed · No Manual Steps
+        </span>
+      </div>
+      <div class="panel-body">
+
+        {% if not account_verified %}
+        <div class="alert alert-warning">
+          <strong>⚠️ Account Not Verified:</strong> You must be verified by an admin or auditor before you can sell credits.
+        </div>
+        {% else %}
+
+        <!-- How It Works Steps -->
+        <p style="margin:0 0 18px; color:#555; font-size:0.93rem; line-height:1.6;">
+          To list your carbon credits on the marketplace, transfer CCT tokens from your MetaMask wallet
+          to the <strong>Platform Wallet</strong> below. The platform detects the transfer automatically,
+          deducts a <strong>2% platform fee</strong>, and lists the rest — no forms, no waiting for approval.
+        </p>
+
+        <div class="cct-steps-row">
+          <div class="cct-step-box">
+            <div class="cct-step-num">1</div>
+            <div class="cct-step-text">
+              <strong>Import CCT token in MetaMask</strong><br>
+              <span style="font-size:0.82rem; color:#666;">Do this once. Use the contract address below.</span>
+            </div>
+          </div>
+          <div class="cct-step-arrow">→</div>
+          <div class="cct-step-box">
+            <div class="cct-step-num">2</div>
+            <div class="cct-step-text">
+              <strong>Switch to Polygon Amoy network</strong><br>
+              <span style="font-size:0.82rem; color:#666;">Make sure you're on Amoy, not mainnet.</span>
+            </div>
+          </div>
+          <div class="cct-step-arrow">→</div>
+          <div class="cct-step-box">
+            <div class="cct-step-num">3</div>
+            <div class="cct-step-text">
+              <strong>Send CCT to Platform Wallet</strong><br>
+              <span style="font-size:0.82rem; color:#666;">Copy the address below and paste in MetaMask → Send.</span>
+            </div>
+          </div>
+          <div class="cct-step-arrow">→</div>
+          <div class="cct-step-box cct-step-box-success">
+            <div class="cct-step-num" style="background:#28a745;">✓</div>
+            <div class="cct-step-text">
+              <strong>Listing auto-created!</strong><br>
+              <span style="font-size:0.82rem; color:#666;">After 3 confirmations (~30 sec).</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Two address cards side by side -->
+        <div class="addr-cards-row">
+
+          <!-- Platform Wallet — SEND HERE -->
+          <div class="addr-card addr-card-primary">
+            <div class="addr-card-label">
+            <span class="addr-badge addr-badge-green">✓ SEND CCT HERE</span>
+              <span class="addr-card-title">Platform Wallet Address</span>
+            </div>
+            <div class="addr-value" id="platformWallet">
+              0x7f3846D0c4524Bf27d32019C9DBda088764<wbr>27f5D
+            </div>
+            <button class="btn-copy-addr" onclick="copyAddr('0x7f3846D0c4524Bf27d32019C9DBda08876427f5D', 'cpyPlatform')" id="cpyPlatform">
+              📋 Copy Address
+            </button>
+            <div class="addr-note addr-note-green">
+              This is where you send your CCT tokens to list them for sale.
+            </div>
+          </div>
+
+          <!-- Token Contract — IMPORT ONLY -->
+          <div class="addr-card addr-card-secondary">
+            <div class="addr-card-label">
+            <span class="addr-badge addr-badge-blue">₹ IMPORT IN METAMASK ONLY</span>
+              <span class="addr-card-title">CCT Token Contract</span>
+            </div>
+            <div class="addr-value" id="tokenContract">
+              0xac9b428132898610873682700b0ae73182506e3b
+            </div>
+            <button class="btn-copy-addr btn-copy-secondary" onclick="copyAddr('0xac9b428132898610873682700b0ae73182506e3b', 'cpyContract')" id="cpyContract">
+              📋 Copy Contract
+            </button>
+            <div class="addr-note addr-note-blue">
+              Use this only to add CCT to your MetaMask token list. Do <u>not</u> send tokens to this address.
+            </div>
+          </div>
+
+        </div>
+
+        <!-- MetaMask import guide (collapsible) -->
+        <details class="metamask-guide" style="margin-top:16px;">
+          <summary style="cursor:pointer; font-weight:600; color:#0c5460; padding:10px 14px; background:#d1ecf1; border-radius:8px;">
+            ▶ First time? How to add CCT token to MetaMask ▼
+          </summary>
+          <div class="metamask-steps">
+            <ol style="margin:12px 0 0 18px; line-height:2.1; color:#444; font-size:0.91rem;">
+              <li>Open MetaMask and make sure network is set to <strong>Polygon Amoy</strong></li>
+              <li>Scroll down and click <strong>"Import tokens"</strong></li>
+              <li>Paste the contract address: <code style="background:#f0f0f0; padding:2px 6px; border-radius:4px;">0xac9b428132898610873682700b0ae73182506e3b</code></li>
+              <li>MetaMask auto-fills: Token Symbol = <strong>CCT</strong>, Decimals = <strong>18</strong></li>
+              <li>Click <strong>"Add custom token"</strong> → <strong>"Import tokens"</strong></li>
+              <li>You can now see your CCT balance in MetaMask ✓</li>
+            </ol>
+          </div>
+        </details>
+
+        <!-- Fee Calculator -->
+        <div class="fee-calc-box">
+          <div class="fee-calc-title">⚙️ Fee Calculator — See your listing amount before transferring</div>
+          <div class="fee-calc-row">
+            <div class="fee-calc-input-wrap">
+              <input type="number" id="feeInput" min="0" step="0.01"
+                placeholder="Enter CCT amount you want to transfer"
+                oninput="calcFee(this.value)"
+                class="form-control fee-input">
+            </div>
+            <div class="fee-calc-results" id="feeResults" style="display:none;">
+            <div class="fee-row">
+              <span class="fee-lbl">You transfer</span>
+              <span class="fee-val" id="feeTotal">—</span>
+            </div>
+            <div class="fee-row fee-row-deduct">
+              <span class="fee-lbl">Platform fee (2%)</span>
+              <span class="fee-val fee-red" id="feeDed">—</span>
+            </div>
+            <div class="fee-row fee-row-net">
+              <span class="fee-lbl"><strong>You get listed</strong></span>
+              <span class="fee-val fee-green" id="feeNet"><strong>—</strong></span>
+            </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Warning about wallet match -->
+        <div class="alert alert-warning" style="margin-top:16px; font-size:0.88rem;">
+          <strong>⚠️ Important:</strong> Only transfer CCT from the wallet registered with your account:
+          <br><code style="font-size:0.85rem;">{{ session.get('wallet_address', 'Not set — please update your profile') }}</code>
+          <br><span style="color:#856404;">Transfers from other wallets cannot be matched to your account and will not create a listing.</span>
+        </div>
+
+        <!-- CCT Payment History Table -->
+        {% if cct_payments and cct_payments.history %}
+        <div style="margin-top:28px;">
+            <h4 style="margin-bottom:12px; color:#2d6a4f; font-size:1rem;">
+            📄 Your CCT Transfer History
+            <span style="font-size:0.8rem; font-weight:400; color:#666; margin-left:8px;">
+              ({{ cct_payments.count }} transfer{{ 's' if cct_payments.count != 1 else '' }} detected)
+            </span>
+          </h4>
+          <div class="table-responsive">
+            <table class="table table-sm">
+              <thead>
+                <tr>
+                  <th>Tx Hash</th>
+                  <th>Sent</th>
+                  <th>Fee (2%)</th>
+                  <th>Listed</th>
+                  <th>Listing ID</th>
+                  <th>Price / CCT (₹)</th>
+                  <th>Status</th>
+                  <th>Detected At</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for p in cct_payments.history %}
+                <tr>
+                  <td>
+                    <a href="https://amoy.polygonscan.com/tx/{{ p.tx_hash }}"
+                       target="_blank"
+                       title="{{ p.tx_hash }}"
+                       style="font-family:monospace; font-size:0.8rem; color:#0056b3;">
+                      {{ p.tx_hash[:10] if p.tx_hash else '—' }}…{{ p.tx_hash[-6:] if p.tx_hash else '' }}
+                    </a>
+                  </td>
+                  <td>{{ "{:,.2f}".format(p.amount_received) }} CCT</td>
+                  <td style="color:#dc3545;">−{{ "{:,.2f}".format(p.platform_fee) }} CCT</td>
+                  <td style="color:#28a745; font-weight:600;">{{ "{:,.2f}".format(p.amount_listed) }} CCT</td>
+                  <td>
+                    {% if p.listing_id %}
+                      <span class="badge badge-green">#{{ p.listing_id }}</span>
+                    {% else %}
+                      <span class="badge badge-amber">—</span>
+                    {% endif %}
+                  </td>
+                  <!-- Price per credit — editable -->
+                  <td>
+                    {% if p.listing_id and p.status == 'active' %}
+                    <form method="POST" action="{{ url_for('update_listing_price') }}"
+                          style="display:flex; gap:4px; align-items:center;">
+                      <input type="hidden" name="listing_id" value="{{ p.listing_id }}">
+                      <input type="number" name="price_per_credit"
+                             value="{{ p.price_per_credit or 1.0 }}"
+                             min="0.01" step="0.01"
+                             style="width:80px; padding:3px 6px; border-radius:5px; border:1px solid #ccc; font-size:0.82rem;">
+                      <button type="submit"
+                              style="padding:3px 8px; background:#2d6a4f; color:#fff; border:none; border-radius:5px; font-size:0.78rem; cursor:pointer;">
+                        Set
+                      </button>
+                    </form>
+                    {% else %}
+                      <span style="color:#888; font-size:0.82rem;">
+                        ₹{{ "{:,.2f}".format(p.price_per_credit or 1.0) }}
+                      </span>
+                    {% endif %}
+                  </td>
+                  <td>
+                  {% if p.status == 'active' %}
+                    <span class="badge badge-green">Active</span>
+                  {% elif p.status == 'sold' %}
+                    <span class="badge badge-blue">Sold</span>
+                  {% elif p.status == 'no_eligible_project' %}
+                    <span class="badge badge-red">No Project</span>
+                  {% elif p.status == 'sender_not_registered' %}
+                    <span class="badge badge-red">Unknown Wallet</span>
+                  {% elif p.status == 'amount_too_small' %}
+                    <span class="badge badge-amber">Too Small</span>
+                  {% else %}
+                    <span class="badge badge-amber">{{ p.status | replace('_',' ') | title }}</span>
+                  {% endif %}
+                  </td>
+                  <td style="font-size:0.82rem; color:#666;">
+                    {{ p.detected_at[:16].replace('T',' ') if p.detected_at else '—' }}
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        {% else %}
+        <div class="empty-state" style="margin-top:24px; padding:20px; background:#f8f9fa; border-radius:8px; text-align:center; color:#888;">
+          No CCT transfers detected yet. Transfer CCT tokens to the platform wallet above to auto-create a listing.
+        </div>
+        {% endif %}
+
+        {% endif %}{# end account_verified #}
+      </div>
+    </div>
+
+    <!-- Transfers & Sales -->
+    <div class="panel panel-full">
+      <div class="panel-header">
+        <h3>📈 Credit Transfers & Sales</h3>
+      </div>
+      <div class="panel-body">
+        {% if transfers %}
+        <table class="table table-sm">
+          <thead>
+            <tr>
+              <th>Date</th><th>Type</th><th>Amount</th><th>From/To</th><th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for t in transfers %}
+            <tr>
+              <td>{{ t.transferred_at[:10] if t.transferred_at else '—' }}</td>
+              <td>{{ t.type | default('Transfer') }}</td>
+              <td>{{ "{:,.0f}".format(t.amount) }} CCT</td>
+              <td>{{ t.counterparty_name or '—' }}</td>
+              <td><span class="badge badge-green">Completed</span></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state">No transfers yet.</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Document Upload -->
+    <div class="panel">
+      <div class="panel-header">
+        <h3>📄 Upload Documents</h3>
+      </div>
+      <div class="panel-body">
+        <form method="POST" action="{{ url_for('upload_doc') }}" enctype="multipart/form-data" class="form-group">
+          <label>Document Type</label>
+          <select name="doc_type" class="form-control" required>
+            <option value="land_deed">Land Deed</option>
+            <option value="lease_agreement">Lease Agreement</option>
+            <option value="aadhaar">Aadhaar (Land Owner)</option>
+            <option value="ngo_cert">NGO Certificate</option>
+          </select>
+          <label style="margin-top: 10px;">File</label>
+          <input type="file" name="file" class="form-control" accept=".pdf,.jpg,.png" required>
+          <button type="submit" class="btn btn-primary" style="margin-top: 10px;">
+            Upload Document
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Documents Status -->
+    <div class="panel panel-full">
+      <div class="panel-header">
+        <h3>📊 Your Document Status</h3>
+      </div>
+      <div class="panel-body">
+        {% if documents %}
+        <table class="table table-sm">
+          <thead>
+            <tr>
+              <th>Document</th><th>Type</th><th>Status</th><th>Reviewed At</th><th>Reviewer Note</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for d in documents %}
+            <tr>
+              <td>{{ d.file_name }}</td>
+              <td>{{ d.doc_type | replace('_', ' ') | title }}</td>
+              <td>
+                {% if d.status == 'approved' %}
+                <span class="badge badge-green">Approved</span>
+                {% elif d.status == 'rejected' %}
+                <span class="badge badge-red">Rejected</span>
+                {% else %}
+                <span class="badge badge-amber">Pending</span>
+                {% endif %}
+              </td>
+              <td>{{ d.reviewed_at[:10] if d.reviewed_at else '—' }}</td>
+              <td>{{ d.review_note or '—' }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state">No documents uploaded yet.</div>
+        {% endif %}
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<style>
+.alert {
+  border-left: 4px solid;
+  padding: 12px;
+  margin-bottom: 10px;
+  border-radius: 4px;
+}
+.alert-warning { background-color: #fff3cd; border-color: #ffc107; color: #856404; }
+.alert-success  { background-color: #d4edda; border-color: #28a745; color: #155724; }
+.alert-info     { background-color: #d1ecf1; border-color: #17a2b8; color: #0c5460; }
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.bank-form-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(180px, 1fr));
+  gap: 12px;
+}
+@media (max-width: 900px) {
+  .bank-form-grid {
+    grid-template-columns: repeat(2, minmax(180px, 1fr));
+  }
+}
+@media (max-width: 620px) {
+  .bank-form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* â”€â”€ CCT Steps row â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+.cct-steps-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 22px;
+  flex-wrap: wrap;
+}
+.cct-step-box {
+  flex: 1;
+  min-width: 140px;
+  background: #f4f9f4;
+  border: 1px solid #c3e6cb;
+  border-radius: 10px;
+  padding: 12px 14px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.cct-step-box-success { background: #d4edda; border-color: #28a745; }
+.cct-step-num {
+  min-width: 28px;
+  height: 28px;
+  background: #2d6a4f;
+  color: #fff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.85rem;
+  flex-shrink: 0;
+}
+.cct-step-text { font-size: 0.84rem; line-height: 1.45; color: #333; }
+.cct-step-arrow { color: #aaa; font-size: 1.4rem; flex-shrink: 0; }
+
+/* â”€â”€ Address cards â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+.addr-cards-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+@media (max-width: 680px) { .addr-cards-row { grid-template-columns: 1fr; } }
+
+.addr-card {
+  border-radius: 12px;
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.addr-card-primary  { background: #e8f5e9; border: 2px solid #28a745; }
+.addr-card-secondary { background: #e8f0fb; border: 2px solid #4a90e2; }
+
+.addr-card-label { display: flex; flex-direction: column; gap: 4px; }
+.addr-badge {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 20px;
+  width: fit-content;
+  letter-spacing: 0.03em;
+}
+.addr-badge-green { background: #28a745; color: #fff; }
+.addr-badge-blue  { background: #4a90e2; color: #fff; }
+.addr-card-title  { font-weight: 700; color: #333; font-size: 0.97rem; }
+
+.addr-value {
+  font-family: 'Courier New', monospace;
+  font-size: 0.88rem;
+  background: #fff;
+  border-radius: 8px;
+  padding: 10px 14px;
+  word-break: break-all;
+  line-height: 1.6;
+  border: 1px solid #ddd;
+  color: #222;
+  letter-spacing: 0.02em;
+}
+.btn-copy-addr {
+  padding: 7px 16px;
+  border: none;
+  border-radius: 7px;
+  background: #28a745;
+  color: #fff;
+  font-size: 0.85rem;
+  cursor: pointer;
+  font-weight: 600;
+  width: fit-content;
+  transition: background 0.2s;
+}
+.btn-copy-addr:hover { background: #218838; }
+.btn-copy-secondary { background: #4a90e2; }
+.btn-copy-secondary:hover { background: #2176c7; }
+
+.addr-note {
+  font-size: 0.8rem;
+  border-radius: 6px;
+  padding: 6px 10px;
+  line-height: 1.45;
+}
+.addr-note-green { background: #c3e6cb; color: #155724; }
+.addr-note-blue  { background: #bee5f5; color: #0c5460; }
+
+/* â”€â”€ MetaMask guide â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+.metamask-guide { border: 1px solid #bee5eb; border-radius: 8px; overflow: hidden; }
+.metamask-steps { padding: 10px 18px 16px; background: #f8fdfe; }
+
+/* â”€â”€ Fee Calculator â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+.fee-calc-box {
+  margin-top: 18px;
+  background: #fffbf0;
+  border: 1px solid #ffc107;
+  border-radius: 10px;
+  padding: 16px 20px;
+}
+.fee-calc-title {
+  font-weight: 700;
+  color: #856404;
+  font-size: 0.92rem;
+  margin-bottom: 12px;
+}
+.fee-calc-row { display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap; }
+.fee-calc-input-wrap { flex: 1; min-width: 220px; }
+.fee-input { font-size: 0.93rem !important; }
+
+.fee-calc-results {
+  flex: 1;
+  min-width: 200px;
+  background: #fff;
+  border-radius: 8px;
+  padding: 10px 14px;
+  border: 1px solid #e0c96e;
+}
+.fee-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 5px 0;
+  font-size: 0.88rem;
+  border-bottom: 1px dashed #eee;
+}
+.fee-row:last-child { border-bottom: none; }
+.fee-row-net { margin-top: 4px; padding-top: 8px; border-top: 2px solid #ddd; }
+.fee-lbl { color: #555; }
+.fee-val { font-weight: 600; font-family: monospace; font-size: 0.9rem; }
+.fee-red   { color: #dc3545; }
+.fee-green { color: #28a745; }
+
+/* â”€â”€ Table responsive â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+.table-responsive { overflow-x: auto; }
+
+/* ══════════════════════════════════════════════════════
+   LAND OWNER — Redesigned Header & Credit Cards
+══════════════════════════════════════════════════════ */
+.lo-header {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  flex-wrap: wrap; gap: 1rem; margin-bottom: 1.25rem;
+}
+.lo-header h1 { font-size: 1.75rem; font-weight: 800; color: var(--text); letter-spacing: -.4px; margin-bottom: 4px; }
+.lo-sub { font-size: .88rem; color: var(--text-muted); }
+.lo-sub strong { color: var(--forest); font-weight: 600; }
+
+.lo-status-pill {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 18px; border-radius: 100px;
+  font-size: .8rem; font-weight: 700; letter-spacing: .02em; border: 1.5px solid;
+}
+.lo-pill-verified { background: var(--mint); border-color: var(--forest); color: var(--forest); }
+.lo-pill-approved { background: var(--amber-light); border-color: var(--amber); color: var(--amber); }
+.lo-pill-pending  { background: var(--red-light); border-color: var(--red); color: var(--red); }
+.lo-pill-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; animation: lo-pulse 2s ease infinite; flex-shrink: 0; }
+@keyframes lo-pulse { 0%,100%{opacity:1;} 50%{opacity:.3;} }
+
+.lo-banner {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 14px 18px; border-radius: var(--radius-lg);
+  margin-bottom: 1.5rem; border: 1px solid;
+  font-size: .88rem; line-height: 1.55;
+}
+.lo-banner-icon { font-size: 1.25rem; flex-shrink: 0; margin-top: 1px; }
+.lo-banner div { display: flex; flex-direction: column; gap: 2px; }
+.lo-banner strong { font-weight: 700; font-size: .9rem; }
+.lo-banner-success { background: var(--sage); border-color: var(--sage-deep); color: var(--forest); }
+.lo-banner-warning { background: var(--amber-light); border-color: #fde68a; color: var(--amber); }
+
+/* Hero 3-card strip */
+.lo-credit-summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 1rem; }
+
+.lo-hero-card {
+  border-radius: var(--radius-xl); padding: 1.5rem 1.6rem;
+  display: flex; align-items: center; gap: 1.1rem;
+  position: relative; overflow: hidden; border: 1px solid transparent;
+  transition: transform .2s, box-shadow .2s;
+}
+.lo-hero-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); }
+
+.lo-hero-earned { background: linear-gradient(135deg, #0c2e18 0%, #1a6b3a 100%); border-color: #22874a; color: white; }
+.lo-hero-wallet { background: linear-gradient(135deg, #1a3a6b 0%, #1a5fa8 100%); border-color: #2563eb; color: white; }
+.lo-hero-buffer { background: linear-gradient(135deg, #4a1d7a 0%, #6d28d9 100%); border-color: #7c3aed; color: white; }
+
+.lo-hero-icon { font-size: 2.5rem; flex-shrink: 0; filter: drop-shadow(0 2px 8px rgba(0,0,0,.3)); }
+.lo-hero-body { flex: 1; position: relative; z-index: 1; }
+.lo-hero-label { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; opacity: .75; margin-bottom: .4rem; }
+.lo-hero-val { font-size: 2.2rem; font-weight: 800; font-family: 'DM Mono', monospace; line-height: 1; margin-bottom: .35rem; letter-spacing: -.5px; }
+.lo-hero-earned .lo-hero-val { color: #a8f0c6; }
+.lo-hero-wallet .lo-hero-val { color: #93c5fd; }
+.lo-hero-buffer .lo-hero-val { color: #c4b5fd; }
+.lo-hero-sub { font-size: .76rem; opacity: .65; line-height: 1.4; }
+.lo-hero-accent { position: absolute; right: -20px; top: -20px; width: 100px; height: 100px; border-radius: 50%; background: rgba(255,255,255,.06); }
+.lo-hero-card::before { content: ''; position: absolute; right: 40px; bottom: -30px; width: 80px; height: 80px; border-radius: 50%; background: rgba(255,255,255,.04); }
+
+/* Secondary stat row */
+.lo-stat-row { display: grid; grid-template-columns: repeat(6, 1fr); gap: .875rem; margin-bottom: 1.75rem; }
+.lo-stat-card {
+  background: var(--surface); border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg); padding: 1.1rem 1.2rem;
+  position: relative; overflow: hidden;
+  transition: transform .2s, box-shadow .2s;
+}
+.lo-stat-card:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
+.lo-stat-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
+.lo-stat-green::before  { background: linear-gradient(90deg, var(--forest), #22c55e); }
+.lo-stat-red::before    { background: linear-gradient(90deg, var(--red), #ef4444); }
+.lo-stat-blue::before   { background: linear-gradient(90deg, var(--blue), #3b82f6); }
+.lo-stat-purple::before { background: linear-gradient(90deg, var(--purple), #8b5cf6); }
+.lo-stat-teal::before   { background: linear-gradient(90deg, var(--teal), #22d3ee); }
+.lo-stat-amber::before  { background: linear-gradient(90deg, var(--amber), #f59e0b); }
+
+.lo-stat-icon { font-size: 1.3rem; margin-bottom: .5rem; display: block; }
+.lo-stat-label { font-size: .68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--text-muted); margin-bottom: .4rem; }
+.lo-stat-val { font-size: 1.5rem; font-weight: 800; font-family: 'DM Mono', monospace; line-height: 1; color: var(--text); margin-bottom: .25rem; }
+.lo-stat-val.lo-stat-text { font-size: 1rem; font-family: 'Outfit', sans-serif; font-weight: 700; }
+.lo-stat-sub { font-size: .7rem; color: var(--text-muted); line-height: 1.4; }
+.lo-stat-ok::after  { content: ''; position: absolute; inset: 0; background: rgba(26,107,58,.04); pointer-events: none; border-radius: var(--radius-lg); }
+.lo-stat-warn::after { content: ''; position: absolute; inset: 0; background: rgba(180,83,9,.04); pointer-events: none; border-radius: var(--radius-lg); }
+
+@media (max-width: 1100px) { .lo-stat-row { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 800px) {
+  .lo-credit-summary { grid-template-columns: 1fr; }
+  .lo-stat-row { grid-template-columns: repeat(2, 1fr); }
+  .lo-hero-val { font-size: 1.75rem; }
+}
+
+
+/* ══════════════════════════════════════════════════════
+   REGISTER PROJECT — Map + Form Layout
+══════════════════════════════════════════════════════ */
+.reg-project-panel { }
+
+.reg-layout {
+  display: grid;
+  grid-template-columns: 380px 1fr;
+  min-height: 580px;
+}
+
+/* Form column */
+.reg-form-col {
+  padding: 1.5rem;
+  border-right: 1px solid var(--border-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  overflow-y: auto;
+  max-height: 640px;
+}
+.reg-field { margin-bottom: 1rem; }
+.reg-field label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: .75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--text-muted);
+  margin-bottom: 5px;
+}
+.reg-coord-badge {
+  background: var(--forest);
+  color: white;
+  font-size: .68rem;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-weight: 700;
+  letter-spacing: .02em;
+}
+.reg-coord-box { display: flex; flex-direction: column; gap: 6px; }
+.reg-coord-textarea {
+  font-family: 'DM Mono', monospace !important;
+  font-size: .78rem !important;
+  resize: none;
+  line-height: 1.6;
+}
+.reg-coord-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.reg-btn-clear, .reg-btn-undo, .reg-btn-center {
+  padding: 5px 10px;
+  border-radius: var(--radius-sm);
+  font-size: .75rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1.5px solid var(--border);
+  background: var(--bg-2);
+  color: var(--text-muted);
+  font-family: 'Outfit', sans-serif;
+  transition: all .15s;
+}
+.reg-btn-clear:hover { border-color: var(--red); color: var(--red); background: var(--red-light); }
+.reg-btn-undo:hover  { border-color: var(--amber); color: var(--amber); background: var(--amber-light); }
+.reg-btn-center:hover { border-color: var(--forest); color: var(--forest); background: var(--mint); }
+.reg-hint { font-size: .73rem; color: var(--text-muted); margin-top: 4px; display: block; line-height: 1.5; }
+
+/* Area preview card */
+.reg-area-preview {
+  background: var(--mint);
+  border: 1px solid var(--sage-deep);
+  border-radius: var(--radius);
+  padding: .875rem 1rem;
+  margin-bottom: 1rem;
+}
+.reg-area-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: .83rem;
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(26,107,58,.1);
+  color: var(--text-muted);
+}
+.reg-area-row:last-child { border-bottom: none; }
+.reg-area-row strong { color: var(--forest); font-family: 'DM Mono', monospace; font-size: .88rem; }
+
+.reg-submit-btn { width: 100%; justify-content: center; margin-top: .5rem; padding: 12px; font-size: .95rem; }
+
+/* Map column */
+.reg-map-col {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-2);
+  position: relative;
+}
+.reg-map-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: .625rem 1rem;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border-soft);
+  flex-wrap: wrap;
+}
+.reg-map-mode {
+  padding: 5px 14px;
+  border-radius: 20px;
+  font-size: .78rem;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--text-muted);
+  background: var(--bg-2);
+  border: 1.5px solid var(--border);
+  transition: all .15s;
+  user-select: none;
+}
+.reg-map-mode.active { background: var(--forest); color: white; border-color: var(--forest); }
+.reg-map-mode:not(.active):hover { border-color: var(--forest); color: var(--forest); }
+.reg-map-search { display: flex; gap: 4px; margin-left: auto; }
+.reg-search-input {
+  padding: 5px 10px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: .8rem;
+  background: var(--bg-2);
+  color: var(--text);
+  width: 180px;
+  font-family: 'Outfit', sans-serif;
+}
+.reg-search-input:focus { outline: none; border-color: var(--forest); }
+.reg-search-btn {
+  padding: 5px 10px;
+  background: var(--forest);
+  color: white;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: .8rem;
+}
+
+.reg-map-container {
+  flex: 1;
+  min-height: 480px;
+  cursor: crosshair;
+  position: relative;
+  z-index: 1;
+}
+.reg-map-container.mode-view { cursor: grab; }
+.reg-map-container.mode-view:active { cursor: grabbing; }
+
+.reg-map-legend {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: .5rem 1rem;
+  font-size: .75rem;
+  color: var(--text-muted);
+  background: var(--surface);
+  border-top: 1px solid var(--border-soft);
+  flex-wrap: wrap;
+}
+#reg-map-coords-hint {
+  margin-left: auto;
+  font-style: italic;
+  color: var(--forest);
+  font-size: .73rem;
+}
+
+/* Leaflet overrides for theme */
+.leaflet-container { font-family: 'Outfit', sans-serif !important; }
+.leaflet-popup-content-wrapper {
+  background: var(--surface) !important;
+  color: var(--text) !important;
+  border-radius: var(--radius) !important;
+  box-shadow: var(--shadow) !important;
+  border: 1px solid var(--border-soft) !important;
+}
+.leaflet-popup-tip { background: var(--surface) !important; }
+.leaflet-popup-content { font-size: .82rem !important; }
+.leaflet-control-zoom a {
+  background: var(--surface) !important;
+  color: var(--text) !important;
+  border-color: var(--border) !important;
+}
+.leaflet-control-zoom a:hover { background: var(--mint) !important; color: var(--forest) !important; }
+
+/* Pin number marker */
+.pin-label {
+  background: var(--forest);
+  color: white;
+  border-radius: 50%;
+  width: 24px; height: 24px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: .75rem; font-weight: 800;
+  border: 2px solid white;
+  box-shadow: 0 2px 6px rgba(0,0,0,.3);
+  font-family: 'DM Mono', monospace;
+}
+.pin-label.pin-last { background: #dc2626; }
+
+@media (max-width: 900px) {
+  .reg-layout { grid-template-columns: 1fr; }
+  .reg-form-col { border-right: none; border-bottom: 1px solid var(--border-soft); max-height: none; }
+  .reg-map-container { min-height: 350px; }
+}
+
+</style>
+
+<script>
+(function () {
+  const coordsRegex = /^-?\d+(?:\.\d+)?,-?\d+(?:\.\d+)?(?:\|-?\d+(?:\.\d+)?,-?\d+(?:\.\d+)?)+$/;
+  const initial = {
+    approved: {{ 'true' if account_approved else 'false' }},
+    verified: {{ 'true' if account_verified else 'false' }},
+    identity: "{{ identity_status }}",
+  };
+
+  const projectForm = document.getElementById('projectForm');
+  if (projectForm) {
+    projectForm.addEventListener('submit', function (event) {
+      const name = (document.getElementById('project_name')?.value || '').trim();
+      const coordinates = (document.getElementById('coordinates_input')?.value || '').trim();
+      const docType = (document.getElementById('project_doc_type')?.value || '').trim();
+      const files = document.getElementById('project_documents')?.files || [];
+
+      if (!name) {
+        event.preventDefault();
+        alert('Project name is required.');
+        return;
+      }
+      if (!coordsRegex.test(coordinates)) {
+        event.preventDefault();
+        alert('Coordinates format is invalid. Use: 28.385,77.170|28.390,77.180|28.380,77.185|28.375,77.175');
+        return;
+      }
+      if (coordinates.split('|').length < 3) {
+        event.preventDefault();
+        alert('At least 3 coordinate points are required.');
+        return;
+      }
+      if (!docType) {
+        event.preventDefault();
+        alert('Please select a project document type.');
+        return;
+      }
+      if (!files.length) {
+        event.preventDefault();
+        alert('Please upload at least one project document.');
+      }
+    });
+  }
+
+  const bankForm = document.getElementById('bankAccountForm');
+  const ifscInput = document.getElementById('ifscCodeInput');
+  if (ifscInput) {
+    ifscInput.addEventListener('input', function () {
+      this.value = (this.value || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    });
+  }
+  if (bankForm) {
+    bankForm.addEventListener('submit', function (event) {
+      const accountNo = ((bankForm.querySelector('input[name=\"account_number\"]') || {}).value || '').replace(/\s+/g, '');
+      const confirmAccountNo = ((bankForm.querySelector('input[name=\"confirm_account_number\"]') || {}).value || '').replace(/\s+/g, '');
+      const ifsc = ((bankForm.querySelector('input[name=\"ifsc_code\"]') || {}).value || '').trim().toUpperCase();
+      const accountNoRegex = /^\d{9,18}$/;
+      const ifscRegex = /^[A-Z]{4}0[A-Z0-9]{6}$/;
+
+      if (!accountNoRegex.test(accountNo)) {
+        event.preventDefault();
+        alert('Account number must contain 9 to 18 digits.');
+        return;
+      }
+      if (accountNo !== confirmAccountNo) {
+        event.preventDefault();
+        alert('Account number and confirm account number do not match.');
+        return;
+      }
+      if (!ifscRegex.test(ifsc)) {
+        event.preventDefault();
+        alert('Invalid IFSC code. Example: HDFC0001234');
+      }
+    });
+  }
+
+  // â”€â”€ Copy address to clipboard â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  window.copyAddr = function(addr, btnId) {
+    // strip spaces (the platform wallet has a display-only space for wrapping)
+    const clean = addr.replace(/\s/g, '');
+    navigator.clipboard.writeText(clean).then(function() {
+      const btn = document.getElementById(btnId);
+      if (!btn) return;
+      const orig = btn.textContent;
+      btn.textContent = '✓ Copied!';
+      btn.style.background = '#155724';
+      setTimeout(function() {
+        btn.textContent = orig;
+        btn.style.background = '';
+      }, 2000);
+    }).catch(function() {
+      // Fallback for older browsers
+      const ta = document.createElement('textarea');
+      ta.value = clean;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      const btn = document.getElementById(btnId);
+      if (btn) { btn.textContent = '✓ Copied!'; setTimeout(() => btn.textContent = orig, 2000); }
+    });
+  };
+
+  // â”€â”€ Fee calculator â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  window.calcFee = function(val) {
+    const results = document.getElementById('feeResults');
+    const amount = parseFloat(val);
+    if (!val || isNaN(amount) || amount <= 0) {
+      results.style.display = 'none';
+      return;
+    }
+    const fee = amount * 0.02;
+    const net = amount - fee;
+    document.getElementById('feeTotal').textContent = amount.toFixed(4) + ' CCT';
+    document.getElementById('feeDed').textContent   = '−' + fee.toFixed(4) + ' CCT';
+    document.getElementById('feeNet').innerHTML     = '<strong>' + net.toFixed(4) + ' CCT</strong>';
+    results.style.display = 'block';
+  };
+
+  // â”€â”€ Poll for status changes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  async function checkStatusChanges() {
+    try {
+      const response = await fetch("{{ url_for('api_account_status') }}", { cache: "no-store" });
+      if (!response.ok) return;
+      const data = await response.json();
+      if (!data.success) return;
+
+      const changed =
+        Boolean(data.is_approved) !== initial.approved ||
+        Boolean(data.is_verified) !== initial.verified ||
+        String(data.identity_document_status || "") !== initial.identity;
+
+      if (changed) window.location.reload();
+    } catch (e) { /* silent retry */ }
+  }
+
+  setInterval(checkStatusChanges, 10000);
+})();
+
+
+/* ── Interactive Map for Project Registration ───────────────── */
+(function() {
+  // Load Leaflet CSS + JS dynamically
+  if (!document.getElementById('leaflet-css')) {
+    const lCss = document.createElement('link');
+    lCss.id = 'leaflet-css';
+    lCss.rel = 'stylesheet';
+    lCss.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+    document.head.appendChild(lCss);
+  }
+
+  function initMap() {
+    if (typeof L === 'undefined') {
+      setTimeout(initMap, 100);
+      return;
+    }
+    if (window._regMapInit) return;
+    window._regMapInit = true;
+
+    const mapEl = document.getElementById('reg-map');
+    if (!mapEl) return;
+
+    // Default center: India
+    const map = L.map('reg-map', {
+      center: [20.5937, 78.9629],
+      zoom: 5,
+      zoomControl: true,
+      doubleClickZoom: false
+    });
+
+    // Tile layers
+    const satellite = L.tileLayer(
+      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+      { attribution: 'Esri', maxZoom: 19 }
+    );
+    const street = L.tileLayer(
+      'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+      { attribution: '© OpenStreetMap', maxZoom: 19 }
+    );
+    const topo = L.tileLayer(
+      'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+      { attribution: '© OpenTopoMap', maxZoom: 17 }
+    );
+
+    // Layer control
+    const baseLayers = { '🛰️ Satellite': satellite, '🗺️ Street': street, '🏔️ Topo': topo };
+    street.addTo(map);
+    L.control.layers(baseLayers, {}, { position: 'topright' }).addTo(map);
+
+    let pins = [];       // [{lat,lng,marker}]
+    let polygon = null;
+    let mode = 'pin';    // 'pin' | 'view'
+
+    window.setMode = function(m) {
+      mode = m;
+      document.querySelectorAll('.reg-map-mode').forEach(el => el.classList.remove('active'));
+      document.getElementById('mode-' + m)?.classList.add('active');
+      if (m === 'view') {
+        map.dragging.enable();
+        map.scrollWheelZoom.enable();
+        mapEl.classList.add('mode-view');
+        mapEl.classList.remove('mode-pin');
+      } else {
+        mapEl.classList.add('mode-pin');
+        mapEl.classList.remove('mode-view');
+      }
+    };
+
+    function makeNumberedIcon(n, isLast) {
+      return L.divIcon({
+        className: '',
+        html: `<div class="pin-label ${isLast ? 'pin-last' : ''}">${n}</div>`,
+        iconSize: [24, 24],
+        iconAnchor: [12, 12]
+      });
+    }
+
+    function refreshMarkerIcons() {
+      pins.forEach((p, i) => {
+        const isLast = i === pins.length - 1;
+        p.marker.setIcon(makeNumberedIcon(i + 1, isLast));
+      });
+    }
+
+    function buildCoordString() {
+      return pins.map(p => `${p.lat.toFixed(6)},${p.lng.toFixed(6)}`).join('|');
+    }
+
+    function updateCoordField() {
+      const ta = document.getElementById('coordinates_input');
+      const badge = document.getElementById('reg-pin-count');
+      const hint = document.getElementById('reg-map-coords-hint');
+      const pinsVal = document.getElementById('reg-pins-val');
+      const areaVal = document.getElementById('reg-area-val');
+      const co2Val  = document.getElementById('reg-co2-val');
+      const preview = document.getElementById('reg-area-preview');
+
+      if (ta) ta.value = buildCoordString();
+      if (badge) badge.textContent = `${pins.length} pin${pins.length !== 1 ? 's' : ''}`;
+
+      if (pins.length < 3) {
+        if (hint) hint.textContent = pins.length === 0
+          ? 'Click map to start marking your land boundary'
+          : `${3 - pins.length} more pin${3 - pins.length > 1 ? 's' : ''} needed to form a polygon`;
+        if (preview) preview.style.display = 'none';
+      } else {
+        if (hint) hint.textContent = `✓ Valid polygon — ${pins.length} pins`;
+        // Rough area calc using shoelace formula (in sq degrees → approx hectares)
+        const latlngs = pins.map(p => [p.lat, p.lng]);
+        let area = 0;
+        for (let i = 0; i < latlngs.length; i++) {
+          const j = (i + 1) % latlngs.length;
+          area += latlngs[i][0] * latlngs[j][1];
+          area -= latlngs[j][0] * latlngs[i][1];
+        }
+        area = Math.abs(area) / 2;
+        // 1 sq degree ≈ 12308 km² at equator, rough conversion
+        const avgLat = latlngs.reduce((s,p) => s + p[0], 0) / latlngs.length;
+        const areaKm2 = area * 111.32 * 111.32 * Math.cos(avgLat * Math.PI / 180);
+        const areaHa = areaKm2 * 100;
+        const co2 = areaHa * 4.5; // rough estimate: 4.5 tCO2/ha/yr for forest
+
+        if (preview) preview.style.display = 'block';
+        if (pinsVal) pinsVal.textContent = pins.length + ' pins';
+        if (areaVal) areaVal.textContent = areaHa < 1
+          ? (areaHa * 10000).toFixed(0) + ' m²'
+          : areaHa.toFixed(2) + ' Ha';
+        if (co2Val) co2Val.textContent = '~' + co2.toFixed(0) + ' t CO₂/yr';
+      }
+    }
+
+    function drawPolygon() {
+      if (polygon) { map.removeLayer(polygon); polygon = null; }
+      if (pins.length >= 3) {
+        polygon = L.polygon(pins.map(p => [p.lat, p.lng]), {
+          color: '#1a6b3a',
+          fillColor: '#1a6b3a',
+          fillOpacity: 0.18,
+          weight: 2.5,
+          dashArray: '6,4'
+        }).addTo(map);
+      }
+    }
+
+    function addPin(latlng) {
+      const marker = L.marker([latlng.lat, latlng.lng], {
+        icon: makeNumberedIcon(pins.length + 1, true),
+        draggable: true
+      }).addTo(map);
+
+      // Update coords when dragged
+      marker.on('dragend', function(e) {
+        const idx = pins.findIndex(p => p.marker === marker);
+        if (idx !== -1) {
+          pins[idx].lat = e.target.getLatLng().lat;
+          pins[idx].lng = e.target.getLatLng().lng;
+        }
+        drawPolygon();
+        updateCoordField();
+      });
+
+      // Right-click to remove
+      marker.on('contextmenu', function() {
+        const idx = pins.findIndex(p => p.marker === marker);
+        if (idx !== -1) {
+          map.removeLayer(pins[idx].marker);
+          pins.splice(idx, 1);
+          refreshMarkerIcons();
+          drawPolygon();
+          updateCoordField();
+        }
+      });
+
+      // Re-icon previous last pin
+      if (pins.length > 0) {
+        pins[pins.length - 1].marker.setIcon(makeNumberedIcon(pins.length, false));
+      }
+
+      pins.push({ lat: latlng.lat, lng: latlng.lng, marker });
+      drawPolygon();
+      updateCoordField();
+    }
+
+    // Map click handler
+    map.on('click', function(e) {
+      if (mode !== 'pin') return;
+      addPin(e.latlng);
+    });
+
+    // Toolbar functions
+    window.clearAllPins = function() {
+      pins.forEach(p => map.removeLayer(p.marker));
+      pins = [];
+      if (polygon) { map.removeLayer(polygon); polygon = null; }
+      updateCoordField();
+    };
+
+    window.undoLastPin = function() {
+      if (pins.length === 0) return;
+      map.removeLayer(pins[pins.length - 1].marker);
+      pins.pop();
+      refreshMarkerIcons();
+      drawPolygon();
+      updateCoordField();
+    };
+
+    window.centerMap = function() {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          pos => map.setView([pos.coords.latitude, pos.coords.longitude], 14),
+          () => alert('Location access denied or unavailable.')
+        );
+      } else {
+        alert('Geolocation is not supported by your browser.');
+      }
+    };
+
+    // Search location using Nominatim
+    window.searchLocation = function() {
+      const q = document.getElementById('map-search-input')?.value?.trim();
+      if (!q) return;
+      fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=1`)
+        .then(r => r.json())
+        .then(data => {
+          if (data.length > 0) {
+            const d = data[0];
+            map.setView([parseFloat(d.lat), parseFloat(d.lon)], 13);
+          } else {
+            alert('Location not found. Try a more specific name.');
+          }
+        })
+        .catch(() => alert('Search failed. Check your connection.'));
+    };
+
+    // Allow Enter key on search input
+    document.getElementById('map-search-input')?.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') { e.preventDefault(); window.searchLocation(); }
+    });
+
+    // Sync manual textarea edits back to map
+    document.getElementById('coordinates_input')?.addEventListener('change', function() {
+      const val = this.value.trim();
+      if (!val) return;
+      // Clear existing pins
+      pins.forEach(p => map.removeLayer(p.marker));
+      pins = [];
+      if (polygon) { map.removeLayer(polygon); polygon = null; }
+      // Parse and re-add
+      const pairs = val.split('|');
+      const latlngs = [];
+      pairs.forEach(pair => {
+        const parts = pair.trim().split(',');
+        if (parts.length === 2) {
+          const lat = parseFloat(parts[0]), lng = parseFloat(parts[1]);
+          if (!isNaN(lat) && !isNaN(lng)) {
+            addPin({ lat, lng });
+            latlngs.push([lat, lng]);
+          }
+        }
+      });
+      if (latlngs.length > 0) {
+        map.fitBounds(latlngs, { padding: [40, 40] });
+      }
+    });
+
+    // Try to detect user location on load
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        pos => map.setView([pos.coords.latitude, pos.coords.longitude], 12),
+        () => {} // silent
+      );
+    }
+
+    updateCoordField();
+  }
+
+  // Load Leaflet JS
+  const lScript = document.createElement('script');
+  lScript.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+  lScript.onload = initMap;
+  document.head.appendChild(lScript);
+})();
+
+</script>
+{% endblock %}

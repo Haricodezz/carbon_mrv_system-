@@ -1,0 +1,1093 @@
+{% extends "base.html" %}
+{% block title %}Organization Dashboard — Carbon MRV{% endblock %}
+{% block content %}
+
+<style>
+/* ══════════════════════════════════════════════════════════════════
+   ORG DASHBOARD — Refined Eco Design
+   All IDs, names, actions, JS hooks preserved exactly.
+══════════════════════════════════════════════════════════════════ */
+
+/* Local palette extensions */
+.org-dash {
+  --accent:      var(--forest);
+  --accent-dim:  var(--mint);
+  --accent-glow: 0 0 24px rgba(26,107,58,.14);
+  --mono:        'DM Mono', monospace;
+}
+
+/* ── Layout ── */
+.org-dash {
+  font-family: 'Outfit', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  padding: 2rem 2.5rem 5rem;
+  max-width: 1440px;
+  margin: 0 auto;
+}
+
+/* ── Flash ── */
+.flash-list { list-style: none; margin-bottom: 1.25rem; }
+.flash-list li {
+  padding: 12px 16px;
+  border-radius: var(--radius);
+  font-size: .88rem;
+  margin-bottom: 8px;
+  border-left: 3px solid;
+  font-weight: 500;
+  animation: slideIn .3s ease;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+@keyframes slideIn { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:none; } }
+.flash-success { background: var(--sage); border-color: var(--forest); color: var(--forest); }
+.flash-error   { background: var(--red-light); border-color: var(--red); color: var(--red); }
+.flash-info    { background: var(--blue-light); border-color: var(--blue); color: var(--blue); }
+.flash-warning { background: var(--amber-light); border-color: var(--amber); color: var(--amber); }
+.flash-retirement-ready {
+  background: linear-gradient(135deg, var(--purple-light), var(--mint));
+  border-color: var(--purple);
+  color: var(--purple);
+}
+.flash-download-btn {
+  background: var(--purple) !important;
+  color: white !important;
+  padding: 5px 14px !important;
+  border-radius: var(--radius-sm) !important;
+  text-decoration: none !important;
+  font-size: .82rem !important;
+  font-weight: 700 !important;
+  white-space: nowrap;
+  display: inline-block;
+}
+.flash-download-btn:hover { opacity: .85; }
+.retirement-highlight { animation: highlightRow 2.5s ease-out; }
+@keyframes highlightRow { 0% { background: rgba(109,40,217,.15); } 100% { background: transparent; } }
+
+/* ── Header ── */
+.org-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 2rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid var(--border-soft);
+}
+.org-header h1 {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: var(--text);
+  letter-spacing: -.4px;
+  line-height: 1.15;
+  margin-bottom: 4px;
+}
+.org-header h1 span { color: var(--forest); }
+.org-header .sub {
+  font-size: .88rem;
+  color: var(--text-muted);
+  margin-top: 3px;
+  font-weight: 400;
+}
+.org-header .sub strong { color: var(--forest); font-weight: 600; }
+
+/* Wallet Pill */
+.wallet-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--mint);
+  border: 1px solid var(--sage-deep);
+  border-radius: 100px;
+  padding: 8px 16px;
+  font-size: .8rem;
+  color: var(--text-muted);
+}
+.wallet-pill .dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--forest);
+  box-shadow: 0 0 6px rgba(26,107,58,.5);
+  animation: pulse 2.5s ease infinite;
+}
+@keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:.35;} }
+.wallet-pill code {
+  font-family: var(--mono);
+  font-size: .8rem;
+  color: var(--forest);
+  font-weight: 600;
+}
+
+/* ── Stat Cards ── */
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+.stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem 1.4rem 1.1rem;
+  position: relative;
+  overflow: hidden;
+  transition: transform .2s, box-shadow .2s, border-color .2s;
+  cursor: default;
+}
+.stat-card:hover { transform: translateY(-2px); box-shadow: var(--shadow); border-color: var(--border); }
+.stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; height: 3px;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+.sc-teal::before   { background: linear-gradient(90deg, var(--forest), var(--forest-light)); }
+.sc-amber::before  { background: linear-gradient(90deg, var(--amber), #f59e0b); }
+.sc-rose::before   { background: linear-gradient(90deg, var(--red), #ef4444); }
+.sc-violet::before { background: linear-gradient(90deg, var(--purple), #8b5cf6); }
+.sc-sky::before    { background: linear-gradient(90deg, var(--blue), #3b82f6); }
+.sc-green::before  { background: linear-gradient(90deg, var(--forest), #22c55e); }
+
+.stat-icon { font-size: 1.5rem; margin-bottom: .75rem; display: block; }
+.stat-label {
+  font-size: .7rem;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  color: var(--text-muted);
+  font-weight: 700;
+  margin-bottom: .5rem;
+}
+.stat-val {
+  font-family: var(--mono);
+  font-size: 1.6rem;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--text);
+  margin-bottom: .3rem;
+}
+.sc-teal .stat-val   { color: var(--forest); }
+.sc-amber .stat-val  { color: var(--amber); }
+.sc-rose .stat-val   { color: var(--red); }
+.sc-violet .stat-val { color: var(--purple); }
+.sc-sky .stat-val    { color: var(--blue); }
+.sc-green .stat-val  { color: var(--forest); }
+.stat-sub { font-size: .73rem; color: var(--text-muted); }
+
+/* ── Dashboard Grid ── */
+.dash-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+}
+.col-full  { grid-column: 1 / -1; }
+.col-left  { grid-column: 1; }
+.col-right { grid-column: 2; }
+
+/* ── Panel ── */
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  transition: border-color .2s, box-shadow .2s;
+}
+.panel:hover { border-color: var(--border); }
+.panel-teal:hover { box-shadow: var(--accent-glow); border-color: var(--sage-deep); }
+
+/* Panel Header (ph) */
+.ph {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 1rem 1.4rem;
+  border-bottom: 1px solid var(--border-soft);
+  background: var(--surface-2);
+  flex-wrap: wrap;
+}
+.ph h3 {
+  font-size: .95rem;
+  font-weight: 700;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.panel-body { padding: 1.4rem; }
+
+/* ── Badges ── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: .7rem;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+.badge-teal   { background: var(--sage); color: var(--forest); border: 1px solid var(--sage-deep); }
+.badge-amber  { background: var(--amber-light); color: var(--amber); border: 1px solid #fde68a; }
+.badge-rose   { background: var(--red-light); color: var(--red); border: 1px solid #fecaca; }
+.badge-sky    { background: var(--blue-light); color: var(--blue); border: 1px solid #bfdbfe; }
+.badge-violet { background: var(--purple-light); color: var(--purple); border: 1px solid #ddd6fe; }
+.badge-green  { background: var(--sage); color: var(--forest); border: 1px solid var(--sage-deep); }
+
+/* ── Buttons ── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 18px;
+  border-radius: var(--radius);
+  font-family: 'Outfit', sans-serif;
+  font-size: .87rem;
+  font-weight: 700;
+  cursor: pointer;
+  border: none;
+  transition: all .2s;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.btn-teal {
+  background: var(--forest);
+  color: #fff;
+  box-shadow: 0 3px 12px rgba(26,107,58,.25);
+}
+.btn-teal:hover { background: var(--forest-mid); box-shadow: 0 4px 20px rgba(26,107,58,.4); transform: translateY(-1px); color:#fff; text-decoration:none; }
+
+.btn-rose {
+  background: var(--red);
+  color: #fff;
+  box-shadow: 0 3px 12px rgba(185,28,28,.2);
+}
+.btn-rose:hover { background: #991b1b; box-shadow: 0 4px 20px rgba(185,28,28,.35); transform: translateY(-1px); color:#fff; text-decoration:none; }
+
+.btn-amber {
+  background: var(--amber);
+  color: #fff;
+  box-shadow: 0 3px 12px rgba(180,83,9,.2);
+}
+.btn-amber:hover { background: #92400e; transform: translateY(-1px); color:#fff; text-decoration:none; }
+
+.btn-ghost {
+  background: var(--bg-2);
+  color: var(--text-2);
+  border: 1.5px solid var(--border);
+}
+.btn-ghost:hover { color: var(--text); border-color: var(--forest); background: var(--mint); text-decoration:none; }
+
+.btn-violet {
+  background: var(--purple);
+  color: #fff;
+  box-shadow: 0 3px 12px rgba(109,40,217,.2);
+}
+.btn-violet:hover { background: #5b21b6; transform: translateY(-1px); color:#fff; text-decoration:none; }
+
+.btn-sm { padding: 5px 12px; font-size: .8rem; border-radius: var(--radius-sm); }
+.btn-full { width: 100%; justify-content: center; margin-top: 4px; }
+
+/* ── Forms ── */
+.field { margin-bottom: 1rem; }
+.field:last-child { margin-bottom: 0; }
+.field label {
+  display: block;
+  font-size: .73rem;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  color: var(--text-muted);
+  font-weight: 700;
+  margin-bottom: 5px;
+}
+.field input,
+.field select,
+.field textarea {
+  width: 100%;
+  background: var(--bg-2);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  padding: 10px 13px;
+  font-family: 'Outfit', sans-serif;
+  font-size: .9rem;
+  outline: none;
+  transition: border-color .2s, box-shadow .2s;
+}
+.field input:focus,
+.field select:focus,
+.field textarea:focus {
+  border-color: var(--forest);
+  box-shadow: 0 0 0 3px rgba(26,107,58,.1);
+  background: var(--surface);
+}
+.field input::placeholder { color: var(--text-muted); }
+.field select option { background: var(--surface); color: var(--text); }
+.field-hint { font-size: .75rem; color: var(--text-muted); margin-top: 5px; line-height: 1.5; }
+
+/* ── Info / Alert Boxes ── */
+.info-box {
+  padding: 12px 16px;
+  border-radius: var(--radius);
+  font-size: .85rem;
+  line-height: 1.65;
+  margin-bottom: 1rem;
+  border-left: 3px solid;
+}
+.info-teal  { background: var(--mint); border-color: var(--forest); color: var(--forest); }
+.info-amber { background: var(--amber-light); border-color: var(--amber); color: var(--amber); }
+.info-rose  { background: var(--red-light); border-color: var(--red); color: var(--red); }
+
+/* ── Tables ── */
+.tbl-wrap { overflow-x: auto; border-radius: var(--radius); }
+table.tbl {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: .84rem;
+}
+table.tbl thead th {
+  background: var(--surface-2);
+  color: var(--text-muted);
+  font-size: .72rem;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  font-weight: 700;
+  padding: 10px 14px;
+  border-bottom: 2px solid var(--border);
+  white-space: nowrap;
+}
+table.tbl tbody td {
+  padding: 11px 14px;
+  color: var(--text-2);
+  border-bottom: 1px solid var(--border-soft);
+  vertical-align: middle;
+}
+table.tbl tbody tr:last-child td { border-bottom: none; }
+table.tbl tbody tr:hover td { background: var(--mint); color: var(--text); }
+
+.mono { font-family: var(--mono); }
+.tx-link { color: var(--blue); text-decoration: none; font-family: var(--mono); font-size: .8rem; }
+.tx-link:hover { text-decoration: underline; }
+.val-pos { color: var(--forest); font-family: var(--mono); font-weight: 600; }
+.val-neg { color: var(--red); font-family: var(--mono); font-weight: 600; }
+.val-neutral { color: var(--blue); font-family: var(--mono); font-weight: 500; }
+
+/* ── Empty State ── */
+.empty-state {
+  text-align: center;
+  padding: 2.5rem 1.5rem;
+  color: var(--text-muted);
+  font-size: .88rem;
+  border: 1.5px dashed var(--border);
+  border-radius: var(--radius-lg);
+  line-height: 1.7;
+}
+.empty-state .es-icon { font-size: 2.2rem; display: block; margin-bottom: .75rem; opacity: .5; }
+
+/* ── Vault Panel ── */
+.vault-ring {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 1.25rem;
+  background: linear-gradient(135deg, var(--mint) 0%, var(--surface) 100%);
+  border: 1px solid var(--sage-deep);
+  border-radius: var(--radius-lg);
+  margin-bottom: 1.25rem;
+}
+.vault-circle {
+  width: 90px; height: 90px;
+  border-radius: 50%;
+  border: 2.5px solid var(--sage-deep);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: var(--mint);
+  position: relative;
+}
+.vault-circle::before {
+  content: '';
+  position: absolute;
+  inset: -7px;
+  border-radius: 50%;
+  border: 1px dashed var(--sage-deep);
+  animation: spin-slow 25s linear infinite;
+}
+@keyframes spin-slow { to { transform: rotate(360deg); } }
+.vault-circle-num { font-family: var(--mono); font-size: 1rem; font-weight: 700; color: var(--forest); line-height: 1; }
+.vault-circle-unit { font-size: .62rem; color: var(--text-muted); letter-spacing: .05em; margin-top: 3px; font-weight: 600; }
+
+.vault-stats { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.vs-item { }
+.vs-label { font-size: .7rem; text-transform: uppercase; letter-spacing: .07em; color: var(--text-muted); font-weight: 700; }
+.vs-val { font-family: var(--mono); font-size: 1.05rem; font-weight: 600; color: var(--text); margin-top: 3px; }
+
+/* ── Address Copy Box ── */
+.addr-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--bg-2);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  margin-bottom: 1rem;
+}
+.addr-box-label { font-size: .7rem; text-transform: uppercase; letter-spacing: .07em; color: var(--text-muted); font-weight: 700; white-space: nowrap; }
+.addr-box-val { font-family: var(--mono); font-size: .8rem; color: var(--forest); word-break: break-all; flex: 1; font-weight: 600; }
+.btn-copy {
+  padding: 5px 12px;
+  background: var(--mint);
+  border: 1px solid var(--sage-deep);
+  color: var(--forest);
+  border-radius: var(--radius-sm);
+  font-size: .75rem;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: 'Outfit', sans-serif;
+  transition: all .2s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.btn-copy:hover { background: var(--sage-deep); }
+
+/* ── Steps Flow ── */
+.steps-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+}
+.step {
+  flex: 1;
+  min-width: 100px;
+  background: var(--bg-2);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  padding: 12px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  transition: border-color .2s;
+}
+.step:hover { border-color: var(--sage-deep); }
+.step-num {
+  min-width: 26px; height: 26px;
+  background: var(--forest);
+  color: #fff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: .75rem;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+.step-text { font-size: .8rem; color: var(--text-muted); line-height: 1.5; }
+.step-text strong { display: block; color: var(--text); margin-bottom: 2px; font-size: .82rem; }
+.step-arrow { color: var(--text-muted); font-size: 1rem; align-self: center; flex-shrink: 0; }
+
+/* ── Divider ── */
+.divider { border: none; border-top: 1px solid var(--border-soft); margin: 1.25rem 0; }
+
+/* ── Buy form inline ── */
+.buy-form { display: flex; gap: 0; }
+.buy-form input[type=hidden] { display: none; }
+
+/* ── Section nav tabs ── */
+.section-nav {
+  display: flex;
+  gap: 4px;
+  background: var(--bg-2);
+  border-radius: 100px;
+  padding: 4px;
+  border: 1px solid var(--border-soft);
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+}
+.section-nav button {
+  flex: 1;
+  padding: 7px 14px;
+  border-radius: 100px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-family: 'Outfit', sans-serif;
+  font-size: .8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all .2s;
+  white-space: nowrap;
+}
+.section-nav button.active { background: var(--surface); color: var(--forest); box-shadow: var(--shadow-sm); }
+
+/* ── Responsive ── */
+@media (max-width: 920px) {
+  .dash-body { grid-template-columns: 1fr; }
+  .col-full, .col-left, .col-right { grid-column: 1; }
+  .vault-stats { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 580px) {
+  .org-dash { padding: 1rem 1rem 4rem; }
+  .stat-grid { grid-template-columns: repeat(2, 1fr); }
+  .stat-val { font-size: 1.25rem; }
+  .vault-ring { flex-direction: column; }
+  .steps-row { flex-direction: column; }
+  .step-arrow { display: none; }
+  .org-header h1 { font-size: 1.4rem; }
+}
+</style>
+
+<div class="org-dash">
+
+  {# Flash messages #}
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    <ul class="flash-list">
+      {% for category, message in messages %}
+        {% if category == 'retirement_ready' %}
+          {% set parts = message.split(':') %}
+          {% set ret_id = parts[1] if parts|length > 1 else '' %}
+          {% set ret_amt = parts[2] if parts|length > 2 else '' %}
+          <li class="flash-success flash-retirement-ready" id="retirement-flash">
+            <span>🔥 Successfully retired <strong>{{ ret_amt }} CCT</strong> credits!</span>
+            <span style="margin-left:8px;">Certificate ID: <code style="font-family:'DM Mono',monospace;font-weight:700;">{{ ret_id }}</code></span>
+            {% if ret_id %}
+            <a href="{{ url_for('download_retirement_certificate', retirement_id=ret_id) }}"
+               class="btn btn-violet btn-sm flash-download-btn"
+               style="margin-left:12px;">⬇ Download PDF Now</a>
+            {% endif %}
+          </li>
+        {% else %}
+          <li class="flash-{{ category }}">{{ message }}</li>
+        {% endif %}
+      {% endfor %}
+    </ul>
+    {% endif %}
+  {% endwith %}
+
+  <!-- ══ Header ════════════════════════════════════════════════ -->
+  <div class="org-header">
+    <div class="dash-header-left">
+      <h1>🏢 Organization <span>Dashboard</span></h1>
+      <p class="sub">Welcome, <strong>{{ session.name }}</strong> &nbsp;·&nbsp; CCT Carbon Credit Marketplace</p>
+    </div>
+    {% if session.get('wallet_address') %}
+    <div class="wallet-pill">
+      <span class="dot"></span>
+      <span>Registered Wallet</span>
+      <code>{{ session.wallet_address[:6] }}…{{ session.wallet_address[-4:] }}</code>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- ══ Stat Cards ════════════════════════════════════════════ -->
+  <div class="stat-grid">
+    <div class="stat-card sc-teal">
+      <span class="stat-icon">🪙</span>
+      <div class="stat-label">Available Credits</div>
+      <div class="stat-val">{{ "{:,.2f}".format(wallet.available_credits if wallet else 0) }}</div>
+      <div class="stat-sub">CCT — ready to use</div>
+    </div>
+    <div class="stat-card sc-sky">
+      <span class="stat-icon">📦</span>
+      <div class="stat-label">Total Purchased</div>
+      <div class="stat-val">{{ "{:,.2f}".format(wallet.total_credits if wallet else 0) }}</div>
+      <div class="stat-sub">Lifetime CCT acquired</div>
+    </div>
+    <div class="stat-card sc-rose">
+      <span class="stat-icon">🔥</span>
+      <div class="stat-label">Retired Credits</div>
+      <div class="stat-val">{{ "{:,.2f}".format(wallet.retired_credits if wallet else 0) }}</div>
+      <div class="stat-sub">Permanently burned</div>
+    </div>
+    <div class="stat-card sc-violet">
+      <span class="stat-icon">📜</span>
+      <div class="stat-label">Certificates</div>
+      <div class="stat-val">{{ retirements | length }}</div>
+      <div class="stat-sub">ESG certificates issued</div>
+    </div>
+    <div class="stat-card sc-amber">
+      <span class="stat-icon">🌍</span>
+      <div class="stat-label">CO₂ Offset</div>
+      <div class="stat-val">{{ "{:,.1f}".format((wallet.retired_credits if wallet else 0) / 3.67) }}</div>
+      <div class="stat-sub">Tonnes CO₂ equivalent</div>
+    </div>
+    <div class="stat-card sc-green">
+      <span class="stat-icon">🛒</span>
+      <div class="stat-label">Active Listings</div>
+      <div class="stat-val">{{ market | length }}</div>
+      <div class="stat-sub">Available to buy now</div>
+    </div>
+  </div>
+
+  <!-- ══ Dashboard Body ════════════════════════════════════════ -->
+  <div class="dash-body">
+
+    <!-- ── Virtual CCT Vault ─────────────────────────────────── -->
+    <div class="panel panel-teal col-left">
+      <div class="ph">
+        <h3>🔐 Virtual CCT Vault</h3>
+        <span class="badge badge-teal">Live Balance</span>
+      </div>
+      <div class="panel-body">
+        <div class="vault-ring">
+          <div class="vault-circle">
+            <span class="vault-circle-num">{{ "{:,.1f}".format(wallet.available_credits if wallet else 0) }}</span>
+            <span class="vault-circle-unit">CCT</span>
+          </div>
+          <div class="vault-stats">
+            <div class="vs-item">
+              <div class="vs-label">Total Owned</div>
+              <div class="vs-val" style="color:var(--forest);">{{ "{:,.2f}".format(wallet.total_credits if wallet else 0) }}</div>
+            </div>
+            <div class="vs-item">
+              <div class="vs-label">Available</div>
+              <div class="vs-val" style="color:var(--forest);">{{ "{:,.2f}".format(wallet.available_credits if wallet else 0) }}</div>
+            </div>
+            <div class="vs-item">
+              <div class="vs-label">Retired</div>
+              <div class="vs-val" style="color:var(--red);">{{ "{:,.2f}".format(wallet.retired_credits if wallet else 0) }}</div>
+            </div>
+            <div class="vs-item">
+              <div class="vs-label">Buffer</div>
+              <div class="vs-val" style="color:var(--amber);">{{ "{:,.2f}".format(wallet.buffer_contributed if wallet else 0) }}</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="info-box info-teal">
+          Your Virtual Vault holds all CCT credits purchased from the marketplace or deposited from your registered wallet. Credits here are ready for ESG retirement or withdrawal.
+        </div>
+
+        <!-- Withdraw form -->
+        <form method="POST" action="{{ url_for('withdraw_credits') }}">
+          <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
+            <div class="field" style="flex:1;min-width:140px;margin-bottom:0;">
+              <label>Withdraw Amount (CCT)</label>
+              <input type="number" name="amount" placeholder="e.g. 100" min="0.01" step="0.01" required>
+            </div>
+            <button type="submit" class="btn btn-ghost">
+              ↗ Withdraw to Wallet
+            </button>
+          </div>
+          <p class="field-hint" style="margin-top:8px;">Transfers CCT from your vault to your registered blockchain wallet address.</p>
+        </form>
+      </div>
+    </div>
+
+    <!-- ── Add CCT from Wallet ───────────────────────────────── -->
+    <div class="panel col-right">
+      <div class="ph">
+        <h3>⬇️ Add CCT from Your Wallet</h3>
+        <span class="badge badge-teal">⚡ Auto-Detected</span>
+      </div>
+      <div class="panel-body">
+        <div class="steps-row">
+          <div class="step">
+            <div class="step-num">1</div>
+            <div class="step-text"><strong>Send CCT</strong>Transfer from your MetaMask to the platform wallet below</div>
+          </div>
+          <div class="step-arrow">→</div>
+          <div class="step">
+            <div class="step-num">2</div>
+            <div class="step-text"><strong>Wait ~30s</strong>Listener detects after 3 on-chain confirmations automatically</div>
+          </div>
+          <div class="step-arrow">→</div>
+          <div class="step" style="border-color:var(--sage-deep);background:var(--mint);">
+            <div class="step-num">✓</div>
+            <div class="step-text"><strong>Vault Credited!</strong>Full amount in your vault — no forms, no manual steps</div>
+          </div>
+        </div>
+
+        <div class="addr-box">
+          <span class="addr-box-label">Send CCT Here</span>
+          <span class="addr-box-val" id="platformAddrOrg">0x7f3846D0c4524Bf27d32019C9DBda08876427f5D</span>
+          <button class="btn-copy" onclick="copyAddrOrg('0x7f3846D0c4524Bf27d32019C9DBda08876427f5D','platformAddrOrg','cpyPlatformOrg')" id="cpyPlatformOrg">📋 Copy</button>
+        </div>
+
+        <div class="info-box info-teal" style="margin-bottom:.75rem;">
+          <strong>Fully automatic.</strong> The blockchain listener watches for incoming CCT transfers from your registered wallet. No manual submission — your vault is credited within ~30 seconds.
+        </div>
+
+        <div class="info-box info-amber" style="margin-bottom:0;">
+          <strong>⚠ Use your registered wallet only:</strong><br>
+          <code style="font-family:'DM Mono',monospace;font-size:.82rem;font-weight:600;">{{ session.get('wallet_address', 'Not set — update your profile') }}</code><br>
+          Transfers from other wallets cannot be matched to your account.
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Retire Credits ────────────────────────────────────── -->
+    <div class="panel col-left">
+      <div class="ph">
+        <h3>🔥 Retire Credits (ESG)</h3>
+        <span class="badge badge-rose">Permanent Burn</span>
+      </div>
+      <div class="panel-body">
+        <div class="info-box info-rose">
+          Retirement is <strong>irreversible</strong>. Credits are permanently burned on-chain and a PDF certificate with QR code is issued for government ESG compliance.
+        </div>
+        <div class="field">
+          <label>Amount to Retire (CCT)</label>
+          <input type="number" id="retire-amount-input"
+            placeholder="500" min="1" step="0.01"
+            max="{{ wallet.available_credits if wallet else 0 }}">
+          <small style="color:var(--text-muted);margin-top:4px;display:block;font-size:.78rem;">
+            Available: <strong style="color:var(--forest);">{{ "{:,.2f}".format(wallet.available_credits if wallet else 0) }} CCT</strong>
+          </small>
+        </div>
+        <div class="field">
+          <label>Reason / ESG Reference</label>
+          <input type="text" id="retire-reason-input"
+            placeholder="ESG Carbon Offset Compliance Q1 2026"
+            value="ESG Carbon Offset Compliance Q1 2026">
+        </div>
+        <button type="button" class="btn btn-rose btn-full" onclick="openRetireModal()">
+          🔥 Retire Credits &amp; Generate Certificate
+        </button>
+      </div>
+    </div>
+
+    <!-- ── Quick Buy ─────────────────────────────────────────── -->
+    <div class="panel col-right">
+      <div class="ph">
+        <h3>🛒 Quick Buy</h3>
+        <span class="badge badge-teal">Instant Settlement</span>
+      </div>
+      <div class="panel-body">
+        <div class="info-box info-teal">
+          Enter a Listing ID from the marketplace table below and purchase directly. Credits are credited to your vault immediately after blockchain confirmation.
+        </div>
+        <form method="POST" action="{{ url_for('buy_credits') }}">
+          <div class="field">
+            <label>Listing ID</label>
+            <input type="number" name="listing_id" placeholder="e.g. 7" min="1" required>
+          </div>
+          <button type="submit" class="btn btn-teal btn-full">
+            💳 Buy Credits
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- ── Marketplace Listings ──────────────────────────────── -->
+    <div class="panel col-full">
+      <div class="ph">
+        <h3>🌍 Marketplace — Available Carbon Credits</h3>
+        <span class="badge badge-teal">{{ market | length }} Active Listing{{ 's' if market|length != 1 else '' }}</span>
+      </div>
+      <div class="panel-body">
+        {% if market %}
+        <div class="tbl-wrap">
+          <table class="tbl">
+            <thead>
+              <tr>
+                <th>Listing ID</th>
+                <th>Seller</th>
+                <th>Credits (CCT)</th>
+                <th>Price / CCT</th>
+                <th>Total Value</th>
+                <th>Listed</th>
+                <th>Source</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for l in market %}
+              <tr>
+                <td><span class="mono" style="color:var(--forest);font-weight:600;">#{{ l.listing_id }}</span></td>
+                <td style="color:var(--text);font-weight:500;">{{ l.seller_name or ('Seller #' ~ l.seller_id) }}</td>
+                <td class="val-pos">{{ "{:,.2f}".format(l.credits_amount) }}</td>
+                <td class="mono" style="color:var(--text);">₹{{ "%.2f"|format(l.price_per_credit) }}</td>
+                <td class="mono" style="color:var(--amber);font-weight:600;">₹{{ "{:,.2f}".format(l.total_value_usd) }}</td>
+                <td class="mono" style="color:var(--text-muted);font-size:.78rem;">{{ l.listed_at[:10] if l.listed_at else '—' }}</td>
+                <td>
+                  <span class="badge badge-{{ 'teal' if l.get('source','') == 'auto_cct_payment' else 'sky' }}">
+                    {{ 'Auto-CCT' if l.get('source','') == 'auto_cct_payment' else 'Manual' }}
+                  </span>
+                </td>
+                <td>
+                  <form method="POST" action="{{ url_for('buy_credits') }}" style="display:inline">
+                    <input type="hidden" name="listing_id" value="{{ l.listing_id }}">
+                    <button type="submit" class="btn btn-teal btn-sm">Buy</button>
+                  </form>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+          <span class="es-icon">🌿</span>
+          No active listings right now. Landowners list credits via CCT token transfer — check back soon.
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- ── Transaction History ───────────────────────────────── -->
+    <div class="panel col-full">
+      <div class="ph">
+        <h3>📈 Transaction History</h3>
+        <span class="badge badge-sky">{{ transfers | length }} Record{{ 's' if transfers|length != 1 else '' }}</span>
+      </div>
+      <div class="panel-body">
+        {% if transfers %}
+        <div class="tbl-wrap">
+          <table class="tbl">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Direction</th>
+                <th>Amount (CCT)</th>
+                <th>Counterparty</th>
+                <th>Note</th>
+                <th>Tx Hash</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for t in transfers %}
+              <tr>
+                <td class="mono" style="color:var(--text-muted);font-size:.8rem;">{{ t.transferred_at[:10] if t.transferred_at else '—' }}</td>
+                <td>
+                  {% if t.direction == 'received' or t.to_user_id == session.get('user_id') %}
+                    <span class="badge badge-teal">↓ Received</span>
+                  {% else %}
+                    <span class="badge badge-rose">↑ Sent</span>
+                  {% endif %}
+                </td>
+                <td class="{{ 'val-pos' if (t.direction == 'received' or t.to_user_id == session.get('user_id')) else 'val-neg' }}">
+                  {{ "{:,.2f}".format(t.amount) }} CCT
+                </td>
+                <td style="color:var(--text);font-weight:500;">{{ t.counterparty_name or ('User #' ~ (t.from_user_id if t.to_user_id == session.get('user_id') else t.to_user_id)) }}</td>
+                <td style="color:var(--text-muted);font-size:.82rem;">{{ t.note or '—' }}</td>
+                <td>
+                  {% if t.blockchain_tx %}
+                    <a href="https://amoy.polygonscan.com/tx/{{ t.blockchain_tx }}" target="_blank" class="tx-link">
+                      {{ t.blockchain_tx[:8] }}…{{ t.blockchain_tx[-5:] }}
+                    </a>
+                  {% else %}
+                    <span style="color:var(--text-muted);">—</span>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+          <span class="es-icon">📊</span>
+          No transactions yet. Purchase credits from the marketplace to see your history here.
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- ── Retirement Certificates ──────────────────────────── -->
+    <div class="panel col-full" id="retirement-certs">
+      <div class="ph">
+        <h3>📜 Retirement Certificates</h3>
+        <span class="badge badge-violet">{{ retirements | length }} Certificate{{ 's' if retirements|length != 1 else '' }}</span>
+      </div>
+      <div class="panel-body">
+        {% if retirements %}
+        <div class="tbl-wrap">
+          <table class="tbl">
+            <thead>
+              <tr>
+                <th>Retirement ID</th>
+                <th>Amount (CCT)</th>
+                <th>CO₂ Equivalent</th>
+                <th>Reason</th>
+                <th>Blockchain TX</th>
+                <th>Date</th>
+                <th>Certificate</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for r in retirements %}
+              <tr class="{% if loop.first and request.args.get('highlight') %}retirement-highlight{% endif %}">
+                <td><code class="mono" style="color:var(--purple);font-weight:600;">{{ r.retirement_id }}</code></td>
+                <td class="val-pos">{{ "{:,.2f}".format(r.amount) }} CCT</td>
+                <td class="mono" style="color:var(--forest);font-weight:600;">{{ "{:,.2f}".format(r.amount / 3.67) }} t CO₂</td>
+                <td style="color:var(--text-2);">{{ r.reason or '—' }}</td>
+                <td>
+                  {% if r.blockchain_tx %}
+                  <a href="https://amoy.polygonscan.com/tx/{{ r.blockchain_tx }}"
+                     target="_blank" rel="noopener"
+                     class="tx-link"
+                     title="{{ r.blockchain_tx }}">
+                    {{ r.blockchain_tx[:10] }}…{{ r.blockchain_tx[-6:] }} ↗
+                  </a>
+                  {% else %}
+                  <span style="color:var(--text-muted);">—</span>
+                  {% endif %}
+                </td>
+                <td class="mono" style="color:var(--text-muted);font-size:.8rem;">{{ r.retired_at[:10] if r.retired_at else '—' }}</td>
+                <td>
+                  {% if r.certificate %}
+                  <a href="{{ url_for('download_retirement_certificate', retirement_id=r.retirement_id) }}"
+                     class="btn btn-violet btn-sm">⬇ Download PDF</a>
+                  {% else %}
+                  <span class="badge badge-amber" title="Certificate is still being generated">⏳ Generating…</span>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+          <span class="es-icon">🌱</span>
+          No retirements yet. Buy credits from the marketplace and retire them for ESG compliance certificates.
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+  </div><!-- end dash-body -->
+</div><!-- end org-dash -->
+
+<!-- ── Retire Confirmation Modal ─────────────────────────────── -->
+<div id="retire-confirm-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;align-items:center;justify-content:center;">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-xl);padding:2rem;max-width:460px;width:90%;box-shadow:var(--shadow-lg);">
+    <div style="text-align:center;margin-bottom:1.25rem;">
+      <div style="font-size:2.5rem;margin-bottom:.5rem;">🔥</div>
+      <h3 style="margin:0;color:var(--red);font-size:1.2rem;font-weight:800;">Confirm Credit Retirement</h3>
+      <p style="margin:6px 0 0;color:var(--text-muted);font-size:.88rem;">This action is <strong style="color:var(--red);">permanent and irreversible</strong></p>
+    </div>
+    <div style="background:var(--red-light);border:1px solid #fecaca;border-radius:var(--radius-lg);padding:1.1rem;margin-bottom:1.25rem;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:8px;align-items:center;">
+        <span style="color:var(--text-muted);font-size:.85rem;">Credits to Burn</span>
+        <strong style="color:var(--red);font-size:1rem;font-family:'DM Mono',monospace;" id="modal-retire-amount">—</strong>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:8px;align-items:center;">
+        <span style="color:var(--text-muted);font-size:.85rem;">CO₂ Equivalent</span>
+        <strong style="color:var(--forest);font-size:.9rem;font-family:'DM Mono',monospace;"><span id="modal-retire-co2">—</span> t CO₂</strong>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span style="color:var(--text-muted);font-size:.85rem;">Reason</span>
+        <span style="color:var(--text);font-size:.82rem;text-align:right;max-width:60%;" id="modal-retire-reason">—</span>
+      </div>
+    </div>
+    <p style="font-size:.82rem;color:var(--text-muted);text-align:center;margin-bottom:1.25rem;line-height:1.65;">
+      A PDF certificate with QR code will be generated for ESG compliance. Credits will be permanently burned on the blockchain.
+    </p>
+    <div style="display:flex;gap:10px;">
+      <button onclick="closeRetireModal()" class="btn btn-ghost btn-sm" style="flex:1;">Cancel</button>
+      <button id="retire-submit-btn" onclick="submitRetirement()" class="btn btn-rose btn-sm" style="flex:2;">🔥 Confirm &amp; Burn Credits</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Copy address helper ──────────────────────────────────────────
+function copyAddrOrg(addr, displayId, btnId) {
+  const clean = addr.replace(/\s/g, '');
+  const btn = document.getElementById(btnId);
+  navigator.clipboard.writeText(clean).then(() => {
+    if (btn) {
+      const orig = btn.textContent;
+      btn.textContent = '✓ Copied!';
+      setTimeout(() => btn.textContent = orig, 2000);
+    }
+  }).catch(() => {
+    const ta = document.createElement('textarea');
+    ta.value = clean;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    if (btn) { const orig = btn.textContent; btn.textContent = '✓ Copied!'; setTimeout(() => btn.textContent = orig, 2000); }
+  });
+}
+
+// ── Auto-dismiss flash messages ──────────────────────────────────
+document.querySelectorAll('.flash-list li').forEach(el => {
+  const delay = el.classList.contains('flash-retirement-ready') ? 20000 : 6000;
+  setTimeout(() => {
+    el.style.transition = 'opacity 0.5s';
+    el.style.opacity = '0';
+    setTimeout(() => el.remove(), 500);
+  }, delay);
+});
+
+// ── Auto-scroll to retirement certs if anchor or flash present ───
+(function() {
+  const hash = window.location.hash;
+  const retFlash = document.getElementById('retirement-flash');
+  if (hash === '#retirement-certs' || retFlash) {
+    setTimeout(() => {
+      const el = document.getElementById('retirement-certs');
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 400);
+  }
+})();
+
+// ── Retire Credits confirmation modal ────────────────────────────
+function openRetireModal() {
+  const amountInput = document.getElementById('retire-amount-input');
+  const reasonInput = document.getElementById('retire-reason-input');
+  const amount = parseFloat(amountInput.value);
+  const available = parseFloat(amountInput.max || 0);
+
+  if (!amountInput.value || isNaN(amount) || amount <= 0) {
+    amountInput.focus();
+    amountInput.style.borderColor = 'var(--red)';
+    setTimeout(() => amountInput.style.borderColor = '', 2000);
+    return;
+  }
+  if (amount > available) {
+    alert(`Insufficient credits. You only have ${available.toLocaleString(undefined, {minimumFractionDigits:2})} CCT available.`);
+    return;
+  }
+
+  document.getElementById('modal-retire-amount').textContent = amount.toLocaleString(undefined, {minimumFractionDigits:2});
+  document.getElementById('modal-retire-co2').textContent = (amount / 3.67).toLocaleString(undefined, {minimumFractionDigits:2});
+  document.getElementById('modal-retire-reason').textContent = reasonInput.value || 'ESG Carbon Offset Compliance';
+  document.getElementById('retire-confirm-modal').style.display = 'flex';
+}
+
+function closeRetireModal() {
+  document.getElementById('retire-confirm-modal').style.display = 'none';
+}
+
+function submitRetirement() {
+  const amount = document.getElementById('retire-amount-input').value;
+  const reason = document.getElementById('retire-reason-input').value;
+  const form = document.createElement('form');
+  form.method = 'POST';
+  form.action = "{{ url_for('retire_credits') }}";
+  const amtField = document.createElement('input');
+  amtField.type = 'hidden'; amtField.name = 'amount'; amtField.value = amount;
+  const reaField = document.createElement('input');
+  reaField.type = 'hidden'; reaField.name = 'reason'; reaField.value = reason;
+  form.appendChild(amtField); form.appendChild(reaField);
+  document.body.appendChild(form);
+
+  const btn = document.getElementById('retire-submit-btn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Processing…';
+  form.submit();
+}
+
+// Close modal on backdrop click
+document.getElementById('retire-confirm-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeRetireModal();
+});
+</script>
+
+{% endblock %}

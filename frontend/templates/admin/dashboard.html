@@ -1,0 +1,503 @@
+{% extends "base.html" %}
+{% block title %}Admin Dashboard — Carbon MRV{% endblock %}
+
+{% block content %}
+<div class="dashboard">
+
+  <!-- ══ HEADER ════════════════════════════════════════════ -->
+  <div class="dash-header">
+    <div>
+      <h1>⚙️ Admin Dashboard</h1>
+      <p>Full system control — logged in as <strong>{{ session.name }}</strong></p>
+    </div>
+    <form method="POST" action="{{ url_for('mrv_monitor_all') }}" style="margin:0;">
+      <button type="submit" class="adm-monitor-btn"
+        onclick="return confirm('Run satellite monitoring on all eligible projects?')">
+        🛰️ Monitor All Projects
+      </button>
+    </form>
+  </div>
+
+  <!-- ══ KPI STRIP ════════════════════════════════════════ -->
+  <div class="adm-kpi-strip">
+    <div class="adm-kpi">
+      <span class="adm-kpi-icon" style="background:#e8f5e9;color:#1a7a4a;">👤</span>
+      <div>
+        <div class="adm-kpi-label">Total Users</div>
+        <div class="adm-kpi-val">{{ stats.total_users if stats else 0 }}</div>
+      </div>
+    </div>
+    <div class="adm-kpi">
+      <span class="adm-kpi-icon" style="background:#e3f2fd;color:#1565c0;">📍</span>
+      <div>
+        <div class="adm-kpi-label">Total Projects</div>
+        <div class="adm-kpi-val">{{ stats.total_projects if stats else 0 }}</div>
+      </div>
+    </div>
+    <div class="adm-kpi adm-kpi-hi">
+      <span class="adm-kpi-icon" style="background:#e8f5e9;color:#1a7a4a;">🌿</span>
+      <div>
+        <div class="adm-kpi-label">CCT Issued</div>
+        <div class="adm-kpi-val mono">{{ "{:,.0f}".format((mrv_stats.total_cct_issued or 0) if mrv_stats else 0) }}</div>
+        <div class="adm-kpi-sub">tokens in circulation</div>
+      </div>
+    </div>
+    <div class="adm-kpi adm-kpi-hi">
+      <span class="adm-kpi-icon" style="background:#ffebee;color:#c62828;">♻️</span>
+      <div>
+        <div class="adm-kpi-label">CCT Retired</div>
+        <div class="adm-kpi-val mono" style="color:#c62828;">{{ "{:,.0f}".format((mrv_stats.total_cct_retired or 0) if mrv_stats else 0) }}</div>
+        <div class="adm-kpi-sub">offset / ESG claims</div>
+      </div>
+    </div>
+    <div class="adm-kpi">
+      <span class="adm-kpi-icon" style="background:#fff8e1;color:#f57f17;">🏪</span>
+      <div>
+        <div class="adm-kpi-label">Marketplace</div>
+        <div class="adm-kpi-val mono" style="color:#f57f17;">{{ "{:,.0f}".format((mrv_stats.total_marketplace or 0) if mrv_stats else 0) }}</div>
+        <div class="adm-kpi-sub">active listings</div>
+      </div>
+    </div>
+    <div class="adm-kpi {% if (buffer.total_buffer_credits if buffer else 0) <= 0 %}adm-kpi-danger{% elif (buffer.total_buffer_credits if buffer else 0) < 500 %}adm-kpi-warn{% endif %}">
+      <span class="adm-kpi-icon" style="background:#f3e5f5;color:#6a1b9a;">🛡️</span>
+      <div>
+        <div class="adm-kpi-label">Buffer Pool</div>
+        <div class="adm-kpi-val mono" style="color:#6a1b9a;">{{ "{:,.0f}".format((buffer.total_buffer_credits or 0) if buffer else 0) }}</div>
+        <div class="adm-kpi-sub">insurance reserve · 20%</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ CONTENT ════════════════════════════════════════════ -->
+  <div class="dash-grid">
+
+    <!-- ── MRV MONITORING TABLE ──────────────────────────── -->
+    <div class="panel panel-full adm-mrv-panel">
+      <div class="panel-header adm-panel-hd">
+        <div>
+          <h3>🛰️ Carbon Stock Monitoring — MRV</h3>
+          <p class="panel-hint" style="margin:4px 0 0;">Previous vs current CO₂ stock per project · buffer impact · credit issuance</p>
+        </div>
+        <form method="POST" action="{{ url_for('mrv_monitor_all') }}" style="margin:0;">
+          <button type="submit" class="adm-run-btn"
+            onclick="return confirm('Monitor all eligible projects?')">▶ Run All</button>
+        </form>
+      </div>
+
+      <div class="panel-body" style="padding:0;">
+        {% set breakdown = mrv_stats.project_breakdown if mrv_stats else [] %}
+        {% if breakdown %}
+
+        <div id="neg-banner" class="adm-neg-banner" style="display:none;">
+          ⚠️ <strong id="neg-count">0</strong> project(s) with carbon decrease — buffer deducted automatically.
+        </div>
+
+        <div style="overflow-x:auto;">
+        <table class="table adm-mrv-table">
+          <thead>
+            <tr>
+              <th>ID</th><th>Project</th><th>Owner</th><th>Ha</th>
+              <th>Prev CO₂</th><th>Curr CO₂</th><th>Δ Change</th>
+              <th>Status</th><th>Last Run</th><th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for p in breakdown %}
+            {% set prev = p.previous_stock %}
+            {% set curr = p.current_stock %}
+            {% set diff = (curr - prev) if (curr is not none and prev is not none) else none %}
+            <tr class="{% if p.is_blacklisted %}adm-row-bl{% elif p.is_flagged %}adm-row-flag{% endif %}">
+              <td class="adm-id">#{{ p.project_id }}</td>
+              <td>
+                <span class="adm-pname">{{ p.project_name }}</span>
+                {% if p.is_blacklisted %}<span class="adm-tag adm-tag-bl">🚫 Blacklisted</span>{% endif %}
+                {% if p.is_flagged %}<div class="adm-flag-note">🚩 {{ p.flag_reason or 'Flagged' }}</div>{% endif %}
+              </td>
+              <td style="color:var(--text-muted);">{{ p.owner_name }}</td>
+              <td class="mono" style="color:var(--text-muted);">{{ "{:,.1f}".format(p.area_ha or 0) }}</td>
+              <td class="mono">{{ "{:,.2f}".format(prev) if prev is not none else "—" }}</td>
+              <td class="mono">{{ "{:,.2f}".format(curr) if curr is not none else "—" }}</td>
+              <td class="mono adm-delta {% if diff is not none %}{% if diff > 0 %}adm-pos{% elif diff < 0 %}adm-neg{% endif %}{% endif %}">
+                {% if diff is not none %}{{ ("+" if diff >= 0 else "") + "{:,.2f}".format(diff) }}{% else %}—{% endif %}
+              </td>
+              <td>
+                {% if diff is none %}<span class="adm-st adm-st-none">No Data</span>
+                {% elif diff > 0 %}<span class="adm-st adm-st-up">📈 Increase</span>
+                {% elif diff < 0 %}<span class="adm-st adm-st-dn">📉 Decrease</span>
+                {% else %}<span class="adm-st adm-st-flat">➡ Flat</span>{% endif %}
+              </td>
+              <td style="font-size:11px;color:var(--text-muted);">
+                {{ p.last_measured[:16].replace("T"," ") if p.last_measured else "Never" }}
+                <br><span style="color:#bbb;">({{ p.total_records }} records)</span>
+              </td>
+              <td class="actions-cell">
+                <form method="POST" action="{{ url_for('mrv_monitor_single', project_id=p.project_id) }}" style="display:inline;">
+                  <button class="btn-sm adm-btn-green" title="Monitor">▶</button>
+                </form>
+                <button class="btn-sm adm-btn-blue" onclick="showHistory({{ p.project_id }},'{{ p.project_name|e }}')" title="History">📊</button>
+                {% if p.is_flagged %}
+                <form method="POST" action="{{ url_for('mrv_unflag_project', project_id=p.project_id) }}" style="display:inline;">
+                  <button class="btn-sm adm-btn-green" title="Clear flag">✓ Unflag</button>
+                </form>
+                {% else %}
+                <button class="btn-sm adm-btn-amber" onclick="flagProject({{ p.project_id }})" title="Flag suspicious">🚩</button>
+                {% endif %}
+                {% if p.is_blacklisted %}
+                <form method="POST" action="{{ url_for('mrv_unblacklist_project', project_id=p.project_id) }}" style="display:inline;">
+                  <button class="btn-sm adm-btn-green" title="Remove blacklist">↩ BL</button>
+                </form>
+                {% else %}
+                <form method="POST" action="{{ url_for('mrv_blacklist_project', project_id=p.project_id) }}" style="display:inline;" onsubmit="return confirm('Blacklist project #{{ p.project_id }}?')">
+                  <button class="btn-sm adm-btn-red" title="Blacklist">🚫</button>
+                </form>
+                {% endif %}
+                <button class="btn-sm adm-btn-grey" onclick="loadMonitoringLogs()" title="Logs">📋</button>
+                <form method="POST" action="{{ url_for('mrv_delete_project', project_id=p.project_id) }}" style="display:inline;" onsubmit="return confirm('PERMANENTLY delete project #{{ p.project_id }}?')">
+                  <button class="btn-sm adm-btn-ghost" title="Delete">🗑</button>
+                </form>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        </div>
+
+        {% else %}
+        <div class="empty-state">No projects found. Projects registered by land owners will appear here.</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- ── BUFFER POOL ───────────────────────────────────── -->
+    <div class="panel">
+      <div class="panel-header">
+        <h3>🛡️ Buffer Pool</h3>
+      </div>
+      <div class="panel-body">
+        <div class="adm-buffer-wrap">
+          <div class="adm-buffer-ring {% if (buffer.total_buffer_credits if buffer else 0) <= 0 %}ring-red{% elif (buffer.total_buffer_credits if buffer else 0) < 500 %}ring-amber{% else %}ring-green{% endif %}">
+            <span class="mono" style="font-size:20px;font-weight:700;line-height:1;">{{ "{:,.0f}".format((buffer.total_buffer_credits or 0) if buffer else 0) }}</span>
+            <span style="font-size:11px;margin-top:3px;opacity:.7;">CCT</span>
+          </div>
+          <div class="adm-buffer-stats">
+            <div class="adm-bstat"><span>Reserve Rate</span><strong>20%</strong></div>
+            <div class="adm-bstat"><span>Total Issued</span><strong class="mono">{{ "{:,.0f}".format((mrv_stats.total_cct_issued or 0) if mrv_stats else 0) }}</strong></div>
+            <div class="adm-bstat"><span>Total Retired</span><strong class="mono">{{ "{:,.0f}".format((mrv_stats.total_cct_retired or 0) if mrv_stats else 0) }}</strong></div>
+            <div class="adm-bstat"><span>Marketplace</span><strong class="mono">{{ "{:,.0f}".format((mrv_stats.total_marketplace or 0) if mrv_stats else 0) }}</strong></div>
+          </div>
+        </div>
+        {% if (buffer.total_buffer_credits if buffer else 0) <= 0 %}
+        <div class="adm-inline-alert adm-inline-red">🚨 Buffer empty — carbon-loss projects will be auto-flagged.</div>
+        {% elif (buffer.total_buffer_credits if buffer else 0) < 500 %}
+        <div class="adm-inline-alert adm-inline-amber">⚠️ Buffer pool is running low.</div>
+        {% else %}
+        <div class="adm-inline-alert adm-inline-green">✅ Buffer pool is healthy.</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- ── MONITORING LOGS ───────────────────────────────── -->
+    <div class="panel">
+      <div class="panel-header" style="display:flex;justify-content:space-between;align-items:center;">
+        <h3>📋 Monitoring Logs</h3>
+        <button class="btn-sm adm-btn-blue" onclick="loadMonitoringLogs()">🔄 Refresh</button>
+      </div>
+      <div class="panel-body" style="padding:0;max-height:300px;overflow-y:auto;" id="mon-logs">
+        <div class="empty-state">Click Refresh to load monitoring logs.</div>
+      </div>
+    </div>
+
+    <!-- ── USER MANAGEMENT ──────────────────────────────── -->
+    <div class="panel panel-full">
+      <div class="panel-header">
+        <h3>👥 User Management & Verification</h3>
+      </div>
+      <div class="panel-body" style="padding:0;">
+        {% if users %}
+        <div style="overflow-x:auto;">
+        <table class="table">
+          <thead>
+            <tr><th>ID</th><th>Name</th><th>Email</th><th>Role</th><th>Approved</th><th>Verified</th><th>Active</th><th>PAN</th><th>Actions</th></tr>
+          </thead>
+          <tbody>
+            {% for u in users %}
+            <tr>
+              <td style="color:var(--text-muted);font-size:12px;">{{ u.id }}</td>
+              <td style="font-weight:600;">{{ u.name }}</td>
+              <td style="color:var(--text-muted);font-size:13px;">{{ u.email }}</td>
+              <td><span class="badge badge-role-{{ u.role }}">{{ u.role | replace('_',' ') | title }}</span></td>
+              <td>{% if u.is_approved %}<span class="badge badge-green">✓</span>{% else %}<span class="badge badge-amber">⏳</span>{% endif %}</td>
+              <td>{% if u.is_verified %}<span class="badge badge-green">✓ Verified</span>{% else %}<span class="badge badge-red">✗</span>{% endif %}</td>
+              <td>{% if u.is_active %}<span class="badge badge-green">Active</span>{% else %}<span class="badge badge-red">Suspended</span>{% endif %}</td>
+              <td class="actions-cell">
+                {% if u.identity_document %}
+                  {% set ds = u.identity_document.status %}
+                  <a class="btn-sm {% if ds=='pending' %}adm-btn-amber{% elif ds=='approved' %}adm-btn-green{% else %}adm-btn-red{% endif %}"
+                     href="{{ url_for('admin_pan_review', user_id=u.id) }}" target="_blank">
+                    🧾 {{ 'Review ⏳' if ds=='pending' else ('PAN ✔' if ds=='approved' else 'PAN ✗') }}
+                  </a>
+                {% else %}<span style="color:#bbb;font-size:12px;">— No PAN</span>{% endif %}
+              </td>
+              <td class="actions-cell">
+                {% if not u.is_approved %}
+                <form method="POST" action="{{ url_for('admin_approve', user_id=u.id) }}" style="display:inline">
+                  <button class="btn-sm adm-btn-blue">Approve</button>
+                </form>
+                {% endif %}
+                {% if u.is_approved and not u.is_verified %}
+                  {% if u.identity_document and u.identity_document.status == 'approved' %}
+                    <form method="POST" action="{{ url_for('admin_verify_user', user_id=u.id) }}" style="display:inline">
+                      <input type="hidden" name="verified" value="true">
+                      <button class="btn-sm adm-btn-green">Verify</button>
+                    </form>
+                  {% elif u.identity_document %}
+                    <a class="btn-sm adm-btn-amber" href="{{ url_for('admin_pan_review', user_id=u.id) }}" target="_blank">🧾 Review PAN</a>
+                    <div style="font-size:11px;color:var(--amber);margin-top:2px;">⚠ Approve PAN first</div>
+                  {% else %}
+                    <button class="btn-sm" disabled style="opacity:.4;cursor:not-allowed;">Verify</button>
+                    <div style="font-size:11px;color:var(--red);margin-top:2px;">✗ No PAN</div>
+                  {% endif %}
+                {% elif u.is_verified %}
+                  <form method="POST" action="{{ url_for('admin_unverify_user', user_id=u.id) }}" style="display:inline">
+                    <input type="hidden" name="verified" value="false">
+                    <button class="btn-sm adm-btn-amber">Unverify</button>
+                  </form>
+                {% endif %}
+                {% if u.is_active and u.role != 'admin' %}
+                <form method="POST" action="{{ url_for('admin_suspend', user_id=u.id) }}" style="display:inline">
+                  <button class="btn-sm adm-btn-red">Suspend</button>
+                </form>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        </div>
+        {% else %}<div class="empty-state">No users found.</div>{% endif %}
+      </div>
+    </div>
+
+    <!-- ── PROJECTS ──────────────────────────────────────── -->
+    <div class="panel panel-full">
+      <div class="panel-header" style="display:flex;justify-content:space-between;align-items:center;">
+        <h3>📍 All Projects</h3>
+        <span class="adm-chip">{{ projects|length }} total</span>
+      </div>
+      <div class="panel-body" style="padding:0;">
+        {% if projects %}
+        <div style="overflow-x:auto;">
+        <table class="table">
+          <thead><tr><th>ID</th><th>Project Name</th><th>Owner</th><th>Area (Ha)</th><th>Status</th><th>Minted</th><th>Created</th></tr></thead>
+          <tbody>
+            {% for p in projects %}
+            <tr>
+              <td style="color:var(--text-muted);font-size:12px;">#{{ p.project_id }}</td>
+              <td style="font-weight:600;">{{ p.project_name }}</td>
+              <td><div>{{ p.owner_name }}</div><div style="font-size:11px;color:var(--text-muted);">{{ p.owner_email }}</div></td>
+              <td class="mono">{{ "{:,.2f}".format(p.area_hectares or 0) }}</td>
+              <td>
+                <span class="adm-st {% if p.status in ['approved','verified'] %}adm-st-up{% elif p.status=='pending' %}adm-st-flat{% else %}adm-st-dn{% endif %}">
+                  {{ p.status | title }}
+                </span>
+              </td>
+              <td>{% if p.is_minted %}<span class="badge badge-green">✓ Yes</span>{% else %}<span style="color:#ccc;font-size:13px;">—</span>{% endif %}</td>
+              <td style="color:var(--text-muted);font-size:12px;" class="mono">{{ p.created_at[:10] if p.created_at else '—' }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        </div>
+        {% else %}<div class="empty-state">No projects found.</div>{% endif %}
+      </div>
+    </div>
+
+    <!-- ── SETTINGS ──────────────────────────────────────── -->
+    <div class="panel">
+      <div class="panel-header"><h3>⚙️ System Settings</h3></div>
+      <div class="panel-body">
+        {% if settings %}
+          {% for s in settings %}
+          <form method="POST" action="{{ url_for('admin_setting') }}" class="setting-row">
+            <input type="hidden" name="key" value="{{ s.key }}">
+            <div class="setting-info">
+              <span class="setting-key">{{ s.key | replace('_', ' ') | title }}</span>
+              <span class="setting-desc">{{ s.description }}</span>
+            </div>
+            <div class="setting-control">
+              {% if s.value in ['true', 'false'] %}
+              <select name="value" class="setting-select">
+                <option value="true" {% if s.value=='true' %}selected{% endif %}>true</option>
+                <option value="false" {% if s.value=='false' %}selected{% endif %}>false</option>
+              </select>
+              {% else %}
+              <input type="text" name="value" value="{{ s.value }}" class="setting-input">
+              {% endif %}
+              <button type="submit" class="btn-sm adm-btn-blue">Save</button>
+            </div>
+          </form>
+          {% endfor %}
+        {% else %}<div class="empty-state">No settings.</div>{% endif %}
+      </div>
+    </div>
+
+    <!-- ── AUDIT LOGS ────────────────────────────────────── -->
+    <div class="panel">
+      <div class="panel-header" style="display:flex;justify-content:space-between;align-items:center;">
+        <h3>📋 Audit Logs</h3>
+        <span class="adm-chip">{{ logs|length }}</span>
+      </div>
+      <div class="panel-body" style="padding:8px 0;max-height:300px;overflow-y:auto;">
+        {% if logs %}
+          {% for l in logs %}
+          <div class="log-item" style="margin-bottom:6px;">
+            <code class="log-action">{{ l.action }}</code>
+            <span style="font-size:12px;color:var(--text-muted);">u#{{ l.user_id or '?' }}</span>
+            <span style="font-size:11px;color:#bbb;margin-left:auto;" class="mono">{{ l.created_at[:19].replace('T',' ') }}</span>
+          </div>
+          {% endfor %}
+        {% else %}<div class="empty-state">No logs yet.</div>{% endif %}
+      </div>
+    </div>
+
+  </div><!-- /.dash-grid -->
+</div><!-- /.dashboard -->
+
+<!-- ══ HISTORY MODAL ═══════════════════════════════════════ -->
+<div class="adm-modal" id="histModal" style="display:none;" onclick="if(event.target===this)this.style.display='none'">
+  <div class="adm-modal-box">
+    <div class="adm-modal-hd">
+      <h3 id="histTitle">Carbon History</h3>
+      <button onclick="document.getElementById('histModal').style.display='none'" class="adm-modal-x">✕</button>
+    </div>
+    <div id="histBody" style="min-height:200px;"></div>
+  </div>
+</div>
+
+<!-- ══ FLAG MODAL ═════════════════════════════════════════ -->
+<div class="adm-modal" id="flagModal" style="display:none;" onclick="if(event.target===this)this.style.display='none'">
+  <div class="adm-modal-box" style="max-width:420px;">
+    <div class="adm-modal-hd">
+      <h3>🚩 Flag Project as Suspicious</h3>
+      <button onclick="document.getElementById('flagModal').style.display='none'" class="adm-modal-x">✕</button>
+    </div>
+    <form id="flagForm" method="POST">
+      <div style="padding:16px 20px 20px;">
+        <div class="form-group">
+          <label>Reason for flagging</label>
+          <textarea name="reason" id="flagReason" rows="3"
+            placeholder="e.g. Suspicious carbon stock drop, inconsistent data…"></textarea>
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;">
+          <button type="button" onclick="document.getElementById('flagModal').style.display='none'" class="btn-sm">Cancel</button>
+          <button type="submit" class="btn-sm adm-btn-red">🚩 Flag Project</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+
+
+<script>
+/* Negative-change banner */
+document.addEventListener('DOMContentLoaded', function() {
+  var neg = document.querySelectorAll('.adm-neg').length;
+  if (neg > 0) {
+    document.getElementById('neg-count').textContent = neg;
+    document.getElementById('neg-banner').style.display = 'block';
+  }
+});
+
+/* Load monitoring logs */
+function loadMonitoringLogs() {
+  var box = document.getElementById('mon-logs');
+  box.innerHTML = '<div class="empty-state">Loading…</div>';
+  fetch('/api/admin/monitoring_logs').then(r => r.json()).then(function(logs) {
+    if (!logs.length) { box.innerHTML = '<div class="empty-state">No monitoring records yet.</div>'; return; }
+    var h = '';
+    logs.slice(0, 60).forEach(function(l) {
+      var chg = l.credits_generated || 0, sign = chg > 0 ? '+' : '', cls = chg > 0 ? 'adm-pos' : chg < 0 ? 'adm-neg' : '';
+      var dt = l.measured_at ? l.measured_at.replace('T', ' ').slice(0, 16) : '—';
+      h += '<div class="adm-log-row">'
+         + '<span style="color:var(--text-muted);width:120px;flex-shrink:0;font-family:\'JetBrains Mono\',monospace;font-size:11px;">' + dt + '</span>'
+         + '<span style="font-weight:600;width:54px;flex-shrink:0;font-size:12px;">#' + l.project_id + '</span>'
+         + '<span style="flex:1;">' + l.project_name + '</span>'
+         + '<span class="mono ' + cls + '" style="width:80px;text-align:right;">' + sign + chg.toFixed(2) + '</span>'
+         + (l.is_flagged ? '<span style="margin-left:6px;">🚩</span>' : '') + '</div>';
+    });
+    box.innerHTML = h;
+  }).catch(function(e) { box.innerHTML = '<div class="empty-state" style="color:var(--red);">Error: ' + e + '</div>'; });
+}
+
+/* Carbon history modal */
+function showHistory(pid, pname) {
+  document.getElementById('histTitle').textContent = '📊 Carbon History — ' + pname;
+  document.getElementById('histBody').innerHTML = '<div class="empty-state">Loading…</div>';
+  document.getElementById('histModal').style.display = 'flex';
+  fetch('/api/admin/project_history/' + pid).then(r => r.json()).then(function(data) {
+    var h = data.history || [];
+    if (!h.length) { document.getElementById('histBody').innerHTML = '<div class="empty-state">No records.</div>'; return; }
+    var labels = h.map((r, i) => r.measured_at ? r.measured_at.slice(0, 10) : '#' + (i + 1));
+    var stocks = h.map(r => r.carbon_stock);
+    var rows = h.map(function(r, i) {
+      var p = i > 0 ? h[i-1].carbon_stock : null, d = p !== null ? (r.carbon_stock - p) : null;
+      var ds = d !== null ? ((d >= 0 ? '+' : '') + d.toFixed(2)) : '—';
+      var cls = d === null ? '' : d > 0 ? 'adm-pos' : d < 0 ? 'adm-neg' : '';
+      return '<tr><td>' + (i === 0 ? '<span class="adm-st adm-st-flat">Baseline</span>' : '#' + r.record_number) + '</td>'
+        + '<td class="mono">' + r.carbon_stock.toFixed(2) + '</td>'
+        + '<td class="mono">' + (p !== null ? p.toFixed(2) : '—') + '</td>'
+        + '<td class="mono ' + cls + '">' + ds + '</td>'
+        + '<td class="mono adm-pos">' + (r.credits_generated > 0 ? '+' + r.credits_generated.toFixed(2) : '—') + '</td>'
+        + '<td style="font-size:11px;color:var(--text-muted);">' + (r.measured_at ? r.measured_at.slice(0, 16).replace('T', ' ') : '—') + '</td></tr>';
+    }).join('');
+    document.getElementById('histBody').innerHTML =
+      '<div style="padding:16px 22px;">'
+      + '<canvas id="histChart" style="width:100%;height:220px;display:block;"></canvas>'
+      + '<table class="table" style="margin-top:14px;font-size:12.5px;">'
+      + '<thead><tr><th>Record</th><th>CO₂ Stock</th><th>Previous</th><th>Δ Change</th><th>Credits Issued</th><th>Date</th></tr></thead>'
+      + '<tbody>' + rows + '</tbody></table></div>';
+    drawChart('histChart', labels, stocks);
+  }).catch(function(e) { document.getElementById('histBody').innerHTML = '<div class="empty-state" style="color:var(--red);">Error: ' + e + '</div>'; });
+}
+
+function drawChart(id, labels, data) {
+  var canvas = document.getElementById(id); if (!canvas) return;
+  var ctx = canvas.getContext('2d'), W = canvas.offsetWidth || 740, H = 220;
+  canvas.width = W; canvas.height = H;
+  var P = {t:16, r:16, b:36, l:60};
+  var cW = W - P.l - P.r, cH = H - P.t - P.b;
+  var mn = Math.min(...data) * .95, mx = (Math.max(...data) * 1.05) || 1;
+  var xS = data.length > 1 ? cW / (data.length - 1) : cW;
+  var yS = function(v) { return cH - ((v - mn) / (mx - mn)) * cH; };
+  ctx.strokeStyle = '#e0e0e0'; ctx.lineWidth = 1;
+  [0, .25, .5, .75, 1].forEach(function(t) {
+    var y = P.t + cH * t;
+    ctx.beginPath(); ctx.moveTo(P.l, y); ctx.lineTo(P.l + cW, y); ctx.stroke();
+    ctx.fillStyle = '#9e9e9e'; ctx.font = '10px JetBrains Mono,monospace'; ctx.textAlign = 'right';
+    ctx.fillText((mn + (mx - mn) * (1 - t)).toFixed(0), P.l - 5, y + 4);
+  });
+  var g = ctx.createLinearGradient(0, P.t, 0, P.t + cH);
+  g.addColorStop(0, 'rgba(26,122,74,.18)'); g.addColorStop(1, 'rgba(26,122,74,.02)');
+  ctx.beginPath();
+  data.forEach(function(v, i) { var x = P.l + i * xS, y = P.t + yS(v); i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); });
+  ctx.lineTo(P.l + (data.length - 1) * xS, P.t + cH); ctx.lineTo(P.l, P.t + cH);
+  ctx.closePath(); ctx.fillStyle = g; ctx.fill();
+  ctx.beginPath(); ctx.strokeStyle = '#1a7a4a'; ctx.lineWidth = 2.5;
+  data.forEach(function(v, i) { var x = P.l + i * xS, y = P.t + yS(v); i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); });
+  ctx.stroke();
+  data.forEach(function(v, i) {
+    var x = P.l + i * xS, y = P.t + yS(v);
+    ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2);
+    ctx.fillStyle = '#1a7a4a'; ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+    if (labels[i]) { ctx.fillStyle = '#9e9e9e'; ctx.font = '10px JetBrains Mono,monospace'; ctx.textAlign = 'center'; ctx.fillText(labels[i].slice(5), x, H - 4); }
+  });
+}
+
+function flagProject(id) {
+  document.getElementById('flagForm').action = '/admin/projects/' + id + '/flag';
+  document.getElementById('flagReason').value = '';
+  document.getElementById('flagModal').style.display = 'flex';
+}
+</script>
+{% endblock %}

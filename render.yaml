@@ -1,0 +1,62 @@
+services:
+  # ── Backend (FastAPI) ──────────────────────────────────────────────────────
+  - type: web
+    name: carbon-mrv-backend
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn api_mean_prediction:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: carbon-mrv-db
+          property: connectionString
+      - key: JWT_SECRET_KEY
+        generateValue: true          # Render auto-generates a secure random value
+      - key: GEE_PROJECT
+        value: carboncredits-487906
+      - key: GEE_SERVICE_ACCOUNT_JSON
+        sync: false                  # You paste this manually in the Render dashboard
+      - key: PRIVATE_KEY
+        sync: false
+      - key: CONTRACT_ADDRESS
+        value: "0xac9b428132898610873682700b0ae73182506e3b"
+      - key: RPC_URL
+        value: "https://rpc-amoy.polygon.technology"
+      - key: PLATFORM_WALLET_ADDRESS
+        value: "0x7f3846D0c4524Bf27d32019C9DBda08876427f5D"
+      - key: SMTP_HOST
+        value: smtp.gmail.com
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+    disk:
+      name: carbon-mrv-uploads
+      mountPath: /var/data
+      sizeGB: 5
+
+  # ── Frontend (Flask) ───────────────────────────────────────────────────────
+  - type: web
+    name: carbon-mrv-frontend
+    runtime: python
+    rootDir: frontend
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 2
+    envVars:
+      - key: BACKEND_URL
+        fromService:
+          name: carbon-mrv-backend
+          type: web
+          property: host
+          envVarKey: BACKEND_URL
+      - key: SECRET_KEY
+        generateValue: true
+
+# ── Managed PostgreSQL ─────────────────────────────────────────────────────
+databases:
+  - name: carbon-mrv-db
+    databaseName: carbon_mrv
+    plan: free

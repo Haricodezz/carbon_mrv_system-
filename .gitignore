@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+*.pyo
+.env
+*.log
+uploads/
+certificates/
+retirement_certificates/
+carbon_mrv.db
+*.pkl
+gee-service-account.json
+*.key.json

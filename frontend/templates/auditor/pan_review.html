@@ -1,0 +1,181 @@
+{% extends "base.html" %}
+{% block title %}PAN Review — {{ user.name }}{% endblock %}
+{% block content %}
+<div class="pan-review-page">
+  {% include 'pan_review_styles.html' %}
+  <div class="pan-review-content">
+    <div class="pan-header">
+      <div class="pan-header-icon">🧾</div>
+      <div>
+        <h1>PAN Document Review</h1>
+        <p>Auditor panel — reviewing identity document for <strong>{{ user.name }}</strong></p>
+      </div>
+    </div>
+
+    <div class="auditor-scope-note">
+      🛡️ <span><strong>Auditor scope:</strong> You can review PAN documents and verify users with roles: <strong>Land Owner</strong> and <strong>Organization</strong> only. Auditor and Admin accounts are managed by the Admin.</span>
+    </div>
+
+    {% if restricted %}
+    <div class="restrict-banner">
+      <span class="icon">⚠️</span>
+      <span>This user is an <strong>{{ user.role | replace('_',' ') | title }}</strong>. Auditors cannot approve, reject, or modify PAN documents for Auditor or Admin accounts.</span>
+    </div>
+    {% endif %}
+
+    <div class="main-grid">
+      {% set doc_url = url_for('download_document', document_id=identity_doc.document_id) %}
+      <div class="pan-panel">
+        <div class="pan-panel-header">
+          <h2>📄 PAN / Identity Document</h2>
+          <span class="badge badge-{{ identity_doc.status }}">{{ identity_doc.status | title }}</span>
+        </div>
+        <div class="pan-image-wrap">
+          <img
+            src="{{ doc_url }}"
+            alt="PAN Document"
+            title="Click to open full size"
+            onerror="this.outerHTML='<div style=\\'color:#64748b;text-align:center;padding:40px;\\'><div style=\\'font-size:48px;margin-bottom:12px;\\'>🖼️</div><div>Document preview unavailable.<br>Use the button below to open.</div></div>'"
+          />
+        </div>
+        <a class="open-fullscreen" href="{{ doc_url }}" target="_blank">
+          🔎 Open full document in new tab
+        </a>
+      </div>
+
+      <div class="action-panel">
+        <div class="info-card">
+          <h3>User Details</h3>
+          <div class="info-row">
+            <span class="info-label">Name</span>
+            <span class="info-value">{{ user.name }}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Email</span>
+            <span class="info-value" style="font-size:12px;">{{ user.email }}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Role</span>
+            <span class="info-value">{{ user.role | replace('_',' ') | title }}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Account Approved</span>
+            <span class="info-value">{{ '✔ Yes' if user.is_approved else '✗ No' }}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">User Verified</span>
+            <span class="info-value">{{ '✔ Yes' if user.is_verified else '✗ No' }}</span>
+          </div>
+        </div>
+
+        <div class="info-card">
+          <h3>Document Details</h3>
+          <div class="info-row">
+            <span class="info-label">Doc ID</span>
+            <span class="info-value">#{{ identity_doc.document_id }}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Type</span>
+            <span class="info-value">{{ identity_doc.document_type | replace('_',' ') | title }}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Status</span>
+            <span class="badge badge-{{ identity_doc.status }}">{{ identity_doc.status | title }}</span>
+          </div>
+          {% if identity_doc.created_at %}
+          <div class="info-row">
+            <span class="info-label">Uploaded</span>
+            <span class="info-value" style="font-size:11px;">{{ identity_doc.created_at[:10] }}</span>
+          </div>
+          {% endif %}
+        </div>
+
+        <div class="action-card">
+          <h3>Auditor Action</h3>
+
+          {% if restricted %}
+          <div class="locked-card">
+            <div class="lock-icon">⚠️</div>
+            <div class="role-pill">{{ user.role | replace('_',' ') | title }}</div>
+            <p>Auditors cannot review or approve PAN documents for Auditor or Admin accounts. Please contact a system Admin to continue.</p>
+          </div>
+
+          {% elif identity_doc.status == 'pending' %}
+          <form method="POST" action="{{ url_for('auditor_pan_approve', user_id=user.id) }}" id="reviewForm">
+            <input type="hidden" name="doc_id" value="{{ identity_doc.document_id }}" />
+            <input type="hidden" name="action" id="formAction" value="" />
+
+            <div class="form-group">
+              <label>Review Note (optional)</label>
+              <textarea name="review_note" placeholder="Example: PAN matches name and DOB"></textarea>
+            </div>
+
+            {% if not user.is_verified %}
+            <label class="checkbox-row">
+              <input type="checkbox" name="also_verify" value="true" id="alsoVerify" />
+              <div>
+                <div class="check-label">✓ Also mark user as Verified</div>
+                <div class="check-hint">Approve PAN and verify the user together</div>
+              </div>
+            </label>
+            {% else %}
+            <div style="padding:10px 12px;background:#141620;border:1px solid #2d3148;border-radius:8px;margin-bottom:14px;font-size:12px;color:#86efac;">
+              ✔ User is already verified
+            </div>
+            {% endif %}
+
+            <div class="btn-row">
+              <button type="button" class="btn btn-approve" onclick="submitAction('approve')">✔ Approve PAN</button>
+              <button type="button" class="btn btn-reject" onclick="submitAction('reject')">✗ Reject PAN</button>
+            </div>
+          </form>
+
+          {% elif identity_doc.status == 'approved' %}
+          <div class="already-done already-approved">
+            ✔ PAN Already Approved
+          </div>
+          {% if not user.is_verified %}
+          <form method="POST" action="{{ url_for('auditor_verify_user', user_id=user.id) }}" style="margin-top:12px;">
+            <input type="hidden" name="verified" value="true">
+            <button type="submit" class="btn btn-verify">✔ Verify User Now</button>
+          </form>
+          {% endif %}
+
+          {% elif identity_doc.status == 'rejected' %}
+          <div class="already-done already-rejected">
+            ✗ PAN Was Rejected
+          </div>
+          <form method="POST" action="{{ url_for('auditor_pan_approve', user_id=user.id) }}" style="margin-top:12px;">
+            <input type="hidden" name="doc_id" value="{{ identity_doc.document_id }}" />
+            <input type="hidden" name="action" value="approve" />
+            <button type="submit" class="btn btn-approve" style="width:100%;">Re-approve PAN</button>
+          </form>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <p class="close-tip">You can close this tab after reviewing. The auditor dashboard will update automatically.</p>
+  </div>
+</div>
+
+<script>
+  function submitAction(action) {
+    const noteField = document.querySelector('textarea[name="review_note"]');
+    document.getElementById('formAction').value = action;
+
+    if (action === 'reject') {
+      const note = noteField.value.trim();
+      if (!note) {
+        alert('Please add a review note explaining why the PAN is being rejected.');
+        return;
+      }
+      if (!confirm('Are you sure you want to REJECT this PAN document?')) {
+        return;
+      }
+    }
+
+    document.getElementById('reviewForm').submit();
+  }
+</script>
+{% endblock %}

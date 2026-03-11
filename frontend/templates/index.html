@@ -1,0 +1,401 @@
+{% extends "base.html" %}
+{% block title %}Carbon MRV Registry — AI + Satellite + Blockchain{% endblock %}
+{% block content %}
+
+{% if session.token %}
+<!-- ═══ LOGGED-IN: MARKETPLACE VIEW ═══ -->
+<div class="dashboard">
+  <div class="dash-header">
+    <div>
+      <h1>🏪 Carbon Credit Marketplace</h1>
+      <p>Browse and purchase verified carbon credits from registered land owners.</p>
+    </div>
+  </div>
+
+  {% if listings %}
+  <div class="listing-grid">
+    {% for l in listings %}
+    <div class="listing-card">
+      <div class="listing-header">
+        <span class="listing-badge">Active</span>
+        <span class="listing-id">Listing #{{ l.listing_id }}</span>
+      </div>
+      <div class="listing-credits">{{ "{:,.0f}".format(l.credits_amount) }} <span>CCT</span></div>
+      <div class="listing-price">${{ "%.2f"|format(l.price_per_credit) }} / CCT</div>
+      <div class="listing-total">Total: ${{ "{:,.0f}".format(l.total_value_usd) }}</div>
+      <a href="{{ url_for('login') }}" class="btn-primary btn-sm btn-full">Buy Credits</a>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="panel">
+    <div class="panel-body">
+      <div class="empty-state">
+        <p>No active listings at the moment.</p>
+        <p><a href="{{ url_for('register') }}">Register as a Land Owner</a> to list credits.</p>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="buffer-bar">
+    <span>🛡️ System Buffer Pool:</span>
+    <strong>{{ "{:,.2f}".format(stats.total_buffer_credits if stats else 0) }} CCT</strong>
+    <span class="buffer-note">Insurance reserve (20% of all credits)</span>
+  </div>
+</div>
+
+{% else %}
+<!-- ═══ PUBLIC: INFORMATIONAL LANDING PAGE ═══ -->
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-content">
+    <div class="hero-badge">🛰️ Sentinel-2 · XGBoost · Polygon Blockchain</div>
+    <h1>Carbon Credit<br><span class="gradient-text">MRV Platform</span></h1>
+    <p class="hero-sub">AI-powered satellite monitoring, blockchain-minted carbon tokens, and a transparent marketplace — built for a greener India.</p>
+    <div class="hero-actions">
+      <a href="{{ url_for('register') }}?role=land_owner" class="btn-primary">Register as Landowner</a>
+      <a href="{{ url_for('register') }}?role=organization" class="btn-outline">Register as Organization</a>
+    </div>
+    <div class="hero-stats">
+      <div>
+        <span class="stat-num">503K+</span>
+        <span class="stat-label">CCT Minted</span>
+      </div>
+      <div>
+        <span class="stat-num">46K</span>
+        <span class="stat-label">Hectares Tracked</span>
+      </div>
+      <div>
+        <span class="stat-num">₹0</span>
+        <span class="stat-label">Cost to Farmers</span>
+      </div>
+    </div>
+  </div>
+  <div class="hero-visual">
+    <div class="globe-ring"></div>
+    <div class="satellite-icon">🛰️</div>
+  </div>
+</section>
+
+<!-- ABOUT -->
+<section class="landing-section" id="about">
+  <div class="container">
+    <span class="section-tag">About the Platform</span>
+    <h2 class="section-title">What is Carbon MRV Registry?</h2>
+    <p class="section-sub">The Carbon MRV Registry connects forests to financial markets using satellite data, AI, and blockchain. Landowners earn carbon credits automatically; companies buy them for ESG compliance.</p>
+    <div class="about-grid">
+      <div class="about-card">
+        <div class="about-card-icon">🛰️</div>
+        <h3>Satellite Monitoring (MRV)</h3>
+        <p>Sentinel-2 satellite imagery is processed every month using XGBoost ML models to measure biomass and CO₂ sequestration. No manual field surveys needed — automated, verifiable, tamper-proof.</p>
+      </div>
+      <div class="about-card">
+        <div class="about-card-icon">⛓️</div>
+        <h3>Blockchain-Minted Tokens</h3>
+        <p>Every carbon credit is minted as a CCT token on the Polygon blockchain. This creates an immutable, auditable record of carbon stock, credit issuance, and retirement — visible to all parties.</p>
+      </div>
+      <div class="about-card">
+        <div class="about-card-icon">🌾</div>
+        <h3>Empowering Landowners</h3>
+        <p>Farmers, NGOs, and forest communities can register their land for free. Credits are minted directly to their MetaMask wallet, enabling a new revenue stream from sustainable land stewardship.</p>
+      </div>
+      <div class="about-card">
+        <div class="about-card-icon">🏢</div>
+        <h3>Enterprise Carbon Compliance</h3>
+        <p>Companies purchase verified CCT credits through the marketplace and retire them to offset emissions. Government-ready PDF certificates with QR blockchain verification are issued instantly.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section class="landing-section alt-bg" id="how-it-works">
+  <div class="container">
+    <span class="section-tag">How It Works</span>
+    <h2 class="section-title">From Forest to Carbon Credit</h2>
+    <p class="section-sub">A fully automated pipeline from land registration to credit retirement — powered by AI, satellite data, and blockchain.</p>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">01</div>
+        <span class="step-icon">🗺️</span>
+        <h3>Register Land</h3>
+        <p>Landowners draw their forest polygon and upload land deeds. Area is verified using satellite data.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">02</div>
+        <span class="step-icon">🛰️</span>
+        <h3>MRV Monitoring</h3>
+        <p>Monthly satellite scans measure NDVI + EVI indices. XGBoost ML predicts biomass and CO₂ stock accurately.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">03</div>
+        <span class="step-icon">⛓️</span>
+        <h3>Credits Minted</h3>
+        <p>Carbon credits (CCT) are minted to the landowner's MetaMask wallet on the Polygon blockchain instantly.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">04</div>
+        <span class="step-icon">💰</span>
+        <h3>Sell & Retire</h3>
+        <p>Landowners list credits on the marketplace. Companies buy and retire them for ESG compliance.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TOKEN INFO -->
+<section class="token-section" id="token">
+  <div class="token-grid">
+    <div>
+      <span class="section-tag" style="background:rgba(168,240,198,.15);color:#a8f0c6;">CCT Token</span>
+      <div class="token-badge">🌿 CCT — Carbon Credit Token</div>
+      <h2 class="section-title">What is CCT?</h2>
+      <p class="section-sub">CCT is the native carbon credit token of this platform, minted on the Polygon blockchain. Each 1 CCT represents 1 tonne of verified CO₂ sequestration.</p>
+      <ul class="token-features">
+        <li>🔗 Minted on Polygon Amoy Testnet (ERC-20 compatible)</li>
+        <li>🛰️ Backed by satellite-verified carbon measurements</li>
+        <li>🔍 Auditable — every mint and transfer on-chain</li>
+        <li>♻️ Retired credits are burned, preventing double counting</li>
+        <li>🏦 20% buffer pool held as system insurance reserve</li>
+        <li>📄 PDF retirement certificates with QR blockchain proof</li>
+      </ul>
+    </div>
+    <div class="token-visual">
+      <div class="token-coin">
+        <div class="token-coin-symbol">CCT</div>
+        <div class="token-coin-name">Carbon Credit Token</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- WALLET GUIDE -->
+<section class="landing-section" id="wallet">
+  <div class="container">
+    <span class="section-tag">Wallet Guide</span>
+    <h2 class="section-title">Connecting Your Wallet</h2>
+    <p class="section-sub">CCT tokens are managed on the Polygon blockchain. Here's how wallets work on this platform.</p>
+    <div class="wallet-grid">
+      <div class="wallet-card">
+        <div class="wallet-card-icon">🦊</div>
+        <h3>MetaMask Connection</h3>
+        <p>Landowners connect their MetaMask wallet during registration. CCT tokens are minted directly to this address on the Polygon network.</p>
+      </div>
+      <div class="wallet-card">
+        <div class="wallet-card-icon">📍</div>
+        <h3>Registered Wallet Address</h3>
+        <p>Your wallet address is verified and linked to your account. All credit issuances, transfers, and retirements are recorded against this address on-chain.</p>
+      </div>
+      <div class="wallet-card">
+        <div class="wallet-card-icon">💸</div>
+        <h3>Token Transfers</h3>
+        <p>When you sell credits, tokens are transferred from your wallet to the organization's Virtual Vault. Retired credits are permanently burned on-chain.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PLATFORM WORKFLOW -->
+<section class="landing-section alt-bg">
+  <div class="container">
+    <span class="section-tag">Platform Workflow</span>
+    <h2 class="section-title">End-to-End Process</h2>
+    <p class="section-sub">Visual overview of the complete carbon credit lifecycle on this platform.</p>
+    <div class="workflow">
+      <div class="workflow-step">
+        <div class="workflow-icon">📝</div>
+        <div class="workflow-label">Project Registration</div>
+        <div class="workflow-desc">Land deed upload</div>
+      </div>
+      <div class="workflow-arrow">→</div>
+      <div class="workflow-step">
+        <div class="workflow-icon">🔍</div>
+        <div class="workflow-label">Auditor Review</div>
+        <div class="workflow-desc">Document verification</div>
+      </div>
+      <div class="workflow-arrow">→</div>
+      <div class="workflow-step">
+        <div class="workflow-icon">🛰️</div>
+        <div class="workflow-label">MRV Monitoring</div>
+        <div class="workflow-desc">Satellite + AI scan</div>
+      </div>
+      <div class="workflow-arrow">→</div>
+      <div class="workflow-step">
+        <div class="workflow-icon">⛓️</div>
+        <div class="workflow-label">Credit Issuance</div>
+        <div class="workflow-desc">CCT minted on-chain</div>
+      </div>
+      <div class="workflow-arrow">→</div>
+      <div class="workflow-step">
+        <div class="workflow-icon">🏪</div>
+        <div class="workflow-label">Marketplace</div>
+        <div class="workflow-desc">Credits listed for sale</div>
+      </div>
+      <div class="workflow-arrow">→</div>
+      <div class="workflow-step">
+        <div class="workflow-icon">♻️</div>
+        <div class="workflow-label">Credit Retirement</div>
+        <div class="workflow-desc">ESG certificate issued</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- WHO IS THIS FOR -->
+<section class="landing-section">
+  <div class="container">
+    <span class="section-tag">Who It's For</span>
+    <h2 class="section-title">Choose Your Role</h2>
+    <p class="section-sub">The platform serves multiple stakeholders in the carbon credit ecosystem.</p>
+    <div class="roles-grid">
+      <div class="role-card">
+        <span class="role-emoji">🌾</span>
+        <h3>Land Owners &amp; NGOs</h3>
+        <p>Farmers, NGOs, and forest communities who manage land and want to earn from carbon sequestration.</p>
+        <ul>
+          <li>✅ Register forest land for free</li>
+          <li>✅ Earn CCT tokens automatically each month</li>
+          <li>✅ Sell credits on the marketplace</li>
+          <li>✅ Download verified certificates</li>
+        </ul>
+        <a href="{{ url_for('register') }}?role=land_owner" class="btn-outline">Join as Landowner</a>
+      </div>
+      <div class="role-card role-card-highlight">
+        <span class="role-emoji">🏢</span>
+        <h3>Organizations</h3>
+        <p>Companies and institutions buying verified carbon credits for ESG compliance, carbon tax offsets, or CSR goals.</p>
+        <ul>
+          <li>✅ Buy satellite-verified credits</li>
+          <li>✅ Retire credits for compliance</li>
+          <li>✅ Get government-ready PDF certificates</li>
+          <li>✅ QR-verified on blockchain</li>
+        </ul>
+        <a href="{{ url_for('register') }}?role=organization" class="btn-primary">Join as Organization</a>
+      </div>
+      <div class="role-card">
+        <span class="role-emoji">🔍</span>
+        <h3>Auditors</h3>
+        <p>Government officials and certified auditors who verify projects and validate monitoring results.</p>
+        <ul>
+          <li>✅ Verify land documents and PAN</li>
+          <li>✅ Trigger and review satellite scans</li>
+          <li>✅ Approve or flag credit issuances</li>
+          <li>✅ Full audit trail access</li>
+        </ul>
+        <a href="{{ url_for('register') }}?role=auditor" class="btn-outline">Join as Auditor</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ACCOUNT CREATION GUIDE -->
+<section class="landing-section alt-bg" id="register">
+  <div class="container">
+    <span class="section-tag">Getting Started</span>
+    <h2 class="section-title">Account Creation Guide</h2>
+    <p class="section-sub">Registration is straightforward. Here's what you'll need for each account type.</p>
+    <div class="about-grid">
+      <div class="about-card">
+        <div class="about-card-icon">🌾</div>
+        <h3>Landowner Registration</h3>
+        <p>Provide your name, email, and MetaMask wallet address. Upload your PAN card for identity verification. An auditor will approve your account, after which you can register forest projects and start earning CCT credits.</p>
+      </div>
+      <div class="about-card">
+        <div class="about-card-icon">🏢</div>
+        <h3>Organization Registration</h3>
+        <p>Register with your organization name, GST details, and PAN. After admin verification, you'll gain access to the marketplace to purchase and retire carbon credits for your ESG compliance reports.</p>
+      </div>
+      <div class="about-card">
+        <div class="about-card-icon">📋</div>
+        <h3>Verification Process</h3>
+        <p>All users undergo PAN/document verification by auditors or admins. This ensures only legitimate landowners earn credits and only genuine organizations can purchase them — maintaining market integrity.</p>
+      </div>
+      <div class="about-card">
+        <div class="about-card-icon">🔒</div>
+        <h3>Security &amp; Privacy</h3>
+        <p>Your documents are securely stored and only accessible to authorized auditors. Blockchain records are public and verifiable, while personal identity data remains protected within the platform.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section class="landing-section" id="faq">
+  <div class="container">
+    <span class="section-tag">FAQ</span>
+    <h2 class="section-title">Frequently Asked Questions</h2>
+    <p class="section-sub">Common questions about the platform and carbon credits.</p>
+    <div class="faq-list">
+      <div class="faq-item">
+        <button class="faq-q">What is a carbon credit? <span class="faq-icon">+</span></button>
+        <div class="faq-a"><p>A carbon credit represents 1 tonne of CO₂ that has been sequestered (absorbed) from the atmosphere. On this platform, each CCT token equals 1 tonne of verified CO₂ sequestration measured by satellite. Companies buy credits to offset their own emissions, effectively making their operations carbon neutral.</p></div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q">How are credits issued and how much can I earn? <span class="faq-icon">+</span></button>
+        <div class="faq-a"><p>Credits are issued based on the increase in carbon stock on your registered land, measured monthly via Sentinel-2 satellite imagery and our XGBoost ML model. The more forest growth on your land, the more credits you earn. 80% of measured credits go to your wallet; 20% is held in a buffer pool as insurance.</p></div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q">How does MRV (Monitoring, Reporting, Verification) work? <span class="faq-icon">+</span></button>
+        <div class="faq-a"><p>The system automatically scans your land coordinates using Sentinel-2 satellite data each month. It extracts vegetation indices (NDVI, EVI) and uses a trained XGBoost model to predict biomass and CO₂ stock. The change in stock from month to month determines how many credits are issued. Auditors can review and approve these results before credits are minted.</p></div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q">How do companies buy and use credits? <span class="faq-icon">+</span></button>
+        <div class="faq-a"><p>Organizations register and are verified on the platform. They then access the marketplace (visible only after login) to browse active listings and purchase CCT credits. Credits are stored in their Virtual Vault. When ready to claim offsetting, they retire the credits — which burns the tokens on-chain and generates a PDF retirement certificate with a QR code for blockchain verification.</p></div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q">Is this platform on a real blockchain? <span class="faq-icon">+</span></button>
+        <div class="faq-a"><p>Currently the platform runs on the Polygon Amoy Testnet — a test network for development and validation. This allows full blockchain functionality (minting, transfers, retirement) without real financial risk. Migration to Polygon mainnet is planned for production launch.</p></div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q">What is the buffer pool? <span class="faq-icon">+</span></button>
+        <div class="faq-a"><p>The buffer pool is a system reserve that holds 20% of all minted carbon credits. It acts as an insurance fund — if a project is destroyed (fire, deforestation), the buffer pool can compensate buyers rather than invalidating their credits. This protects the integrity of the carbon market.</p></div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q">Do I need cryptocurrency or a wallet to participate? <span class="faq-icon">+</span></button>
+        <div class="faq-a"><p>Landowners need a MetaMask wallet to receive CCT tokens on the Polygon network. Organizations purchasing credits need a registered wallet address for the transaction. If you're new to MetaMask, it's a free browser extension — visit metamask.io to get started. No real cryptocurrency is needed on the testnet.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="cta-section">
+  <div class="container">
+    <h2>Ready to Get Started?</h2>
+    <p>Join the Carbon MRV Registry and be part of India's verified carbon credit ecosystem.</p>
+    <div class="cta-buttons">
+      <a href="{{ url_for('register') }}?role=land_owner" class="btn-cta-land">🌾 Register as Landowner</a>
+      <a href="{{ url_for('register') }}?role=organization" class="btn-cta-org">🏢 Register as Organization</a>
+      <a href="{{ url_for('login') }}" class="btn-cta-login">Login to Account</a>
+    </div>
+  </div>
+</section>
+
+{% endif %}
+
+<footer class="footer">
+  <div class="footer-inner">
+    <div class="footer-brand">🌿 Carbon MRV Registry</div>
+    <p>AI + Satellite + Blockchain · Polygon Amoy Testnet · Built for a greener India</p>
+    <div class="footer-links">
+      <a href="http://127.0.0.1:8000/docs" target="_blank">API Docs</a>
+      <a href="https://amoy.polygonscan.com" target="_blank">Blockchain Explorer</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+  // FAQ accordion
+  document.querySelectorAll('.faq-q').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const item = btn.closest('.faq-item');
+      const isOpen = item.classList.contains('open');
+      document.querySelectorAll('.faq-item').forEach(i => i.classList.remove('open'));
+      if (!isOpen) item.classList.add('open');
+    });
+  });
+</script>
+
+{% endblock %}

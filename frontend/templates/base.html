@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Carbon MRV Registry{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+{% if session.token %}
+<nav class="navbar">
+  <a href="{{ url_for('dashboard') }}" class="nav-brand">
+    <span class="leaf">🌿</span> Carbon MRV
+  </a>
+  <div class="nav-links">
+    {% if session.role == 'land_owner' %}
+      <a href="{{ url_for('land_owner_dashboard') }}">Dashboard</a>
+    {% elif session.role == 'organization' %}
+      <a href="{{ url_for('org_dashboard') }}">Dashboard</a>
+      <a href="{{ url_for('index') }}">Marketplace</a>
+    {% elif session.role == 'auditor' %}
+      <a href="{{ url_for('auditor_dashboard') }}">Dashboard</a>
+      <a href="{{ url_for('documents_management') }}">Documents</a>
+    {% elif session.role == 'admin' %}
+      <a href="{{ url_for('admin_dashboard') }}">Dashboard</a>
+      <a href="{{ url_for('index') }}">Marketplace</a>
+      <a href="{{ url_for('documents_management') }}">Documents</a>
+    {% endif %}
+  </div>
+  <div class="nav-right">
+    <button class="theme-toggle" id="themeToggle" title="Toggle dark/light mode">🌙</button>
+    <span class="role-badge role-{{ session.role }}">{{ session.role | replace('_',' ') | title }}</span>
+    <span class="nav-name">{{ session.name }}</span>
+    <a href="{{ url_for('logout') }}" class="btn-logout">Logout</a>
+  </div>
+</nav>
+{% else %}
+<nav class="navbar">
+  <a href="{{ url_for('index') }}" class="nav-brand">
+    <span class="leaf">🌿</span> Carbon MRV
+  </a>
+  <div class="nav-links">
+    <a href="#about">About</a>
+    <a href="#how-it-works">How It Works</a>
+    <a href="#token">CCT Token</a>
+    <a href="#faq">FAQ</a>
+  </div>
+  <div class="nav-right">
+    <button class="theme-toggle" id="themeToggle" title="Toggle dark/light mode">🌙</button>
+    <a href="{{ url_for('login') }}" class="btn-outline btn-sm">Login</a>
+    <a href="{{ url_for('register') }}" class="btn-primary btn-sm">Register</a>
+  </div>
+</nav>
+{% endif %}
+
+<main>
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="flash-container">
+        {% for cat, msg in messages %}
+          <div class="flash flash-{{ cat }}">{{ msg }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  {% block content %}{% endblock %}
+</main>
+
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+<script>
+  // Dark / Light Mode Toggle
+  const html = document.documentElement;
+  const btn = document.getElementById('themeToggle');
+  const saved = localStorage.getItem('theme') || 'light';
+  html.setAttribute('data-theme', saved);
+  if (btn) btn.textContent = saved === 'dark' ? '☀️' : '🌙';
+
+  if (btn) {
+    btn.addEventListener('click', () => {
+      const current = html.getAttribute('data-theme');
+      const next = current === 'dark' ? 'light' : 'dark';
+      html.setAttribute('data-theme', next);
+      localStorage.setItem('theme', next);
+      btn.textContent = next === 'dark' ? '☀️' : '🌙';
+    });
+  }
+</script>
+</body>
+</html>
